@@ -1,0 +1,148 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f3f5f7;
+  color: #1d2733;
+  --board-max-width: 540px;
+  --cell-border-color: #8da2b8;
+  --cell-text-color: #102030;
+  --cell-selected-ring: #2b6ef2;
+  --cell-given-text: #102030;
+  --cell-invalid-text: #9f1f1f;
+  --cell-hover-overlay: rgba(255, 255, 255, 0.28);
+  --cell-given-overlay: rgba(255, 255, 255, 0.16);
+  --cell-invalid-overlay: rgba(255, 226, 226, 0.9);
+  --cell-complete-overlay: rgba(230, 248, 234, 0.72);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.layout {
+  min-height: 100vh;
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(260px, 340px) 1fr;
+  padding: 2rem;
+}
+
+.panel,
+.board-panel {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(19, 35, 58, 0.1);
+  padding: 1.5rem;
+}
+
+.intro,
+.status {
+  color: #4f6173;
+  line-height: 1.5;
+}
+
+.controls {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1.5rem 0 1rem;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  background: #2b6ef2;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  padding: 0.75rem 1.1rem;
+}
+
+button:hover {
+  background: #225acc;
+}
+
+.board-panel {
+  display: grid;
+  place-items: center;
+}
+
+.board {
+  display: grid;
+  gap: 0;
+  width: min(78vmin, var(--board-max-width));
+  max-width: 100%;
+}
+
+.cell {
+  --cell-state-overlay: transparent;
+  appearance: none;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(var(--cell-state-overlay), var(--cell-state-overlay)),
+    var(--region-color, #f8fafc);
+  border-style: solid;
+  border-color: var(--cell-border-color);
+  color: var(--cell-text-color);
+  cursor: pointer;
+  font-size: clamp(1.2rem, 3.5vmin, 2rem);
+  font-weight: 700;
+  min-width: 0;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.cell:hover {
+  --cell-state-overlay: var(--cell-hover-overlay);
+}
+
+.cell:disabled {
+  cursor: default;
+}
+
+.cell:disabled:hover {
+  --cell-state-overlay: transparent;
+}
+
+.cell:focus-visible,
+.cell.selected {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--cell-selected-ring);
+  z-index: 1;
+}
+
+.cell.region-complete {
+  --cell-state-overlay: var(--cell-complete-overlay);
+}
+
+.cell.given {
+  --cell-state-overlay: var(--cell-given-overlay);
+  color: var(--cell-given-text);
+  box-shadow: inset 0 0 0 1px rgba(16, 32, 48, 0.12);
+}
+
+.cell.invalid {
+  --cell-state-overlay: var(--cell-invalid-overlay);
+  color: var(--cell-invalid-text);
+}
+
+.legend {
+  margin-top: 1rem;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .board {
+    width: min(92vw, var(--board-max-width));
+  }
+}

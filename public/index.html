@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tectonic</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <h1>Tectonic</h1>
+        <p class="intro">
+          Fill each region with the numbers 1 through its size. Matching numbers may not touch,
+          even diagonally.
+        </p>
+        <div class="controls">
+          <button id="new-game" type="button">New puzzle</button>
+          <button id="reset-game" type="button">Reset</button>
+        </div>
+        <p id="status" class="status">Loading puzzle…</p>
+      </section>
+      <section class="board-panel">
+        <div id="board" class="board" aria-label="Tectonic puzzle board"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
