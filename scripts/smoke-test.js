@@ -19,6 +19,8 @@ const AMBIGUOUS_PUZZLE = {
   ],
 };
 const AMBIGUOUS_GIVENS = Array(25).fill(null);
+const regionLayoutSignatures = new Set();
+const sizeHistograms = new Set();
 
 function getOrthogonalNeighborIndices(width, height, index) {
   const { row, column } = getCellPosition(width, index);
@@ -103,8 +105,16 @@ for (let iteration = 0; iteration < 100; iteration += 1) {
   }
 
   assertRegionsAreOrthogonallyConnected(puzzle);
+  const regionCells = [...buildRegionCells(puzzle).values()];
 
-  for (const cells of buildRegionCells(puzzle).values()) {
+  regionLayoutSignatures.add(puzzle.regions.join(','));
+  sizeHistograms.add(
+    [1, 2, 3, 4, 5]
+      .map((size) => regionCells.filter((cells) => cells.length === size).length)
+      .join('-'),
+  );
+
+  for (const cells of regionCells) {
     if (cells.length < 1 || cells.length > 5) {
       throw new Error('Generated a region outside the allowed 1-5 size range.');
     }
@@ -115,6 +125,14 @@ for (let iteration = 0; iteration < 100; iteration += 1) {
       throw new Error('A given cell does not match the generated solution.');
     }
   }
+}
+
+if (regionLayoutSignatures.size < 12) {
+  throw new Error('Generated region layouts are not varied enough.');
+}
+
+if (sizeHistograms.size < 4) {
+  throw new Error('Generated region size distributions are not varied enough.');
 }
 
 console.log('Smoke test passed.');
