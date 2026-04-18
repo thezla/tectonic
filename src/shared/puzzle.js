@@ -3,6 +3,7 @@ import { buildRegionCells, countSolutions, getCellIndex, getCellPosition } from 
 const DEFAULT_WIDTH = 5;
 const DEFAULT_HEIGHT = 5;
 const MAX_REGION_SIZE = 5;
+const MAX_GENERATION_ATTEMPTS = 50;
 const BASE_SOLUTION = [
   1, 2, 5, 3, 1,
   3, 4, 1, 2, 4,
@@ -147,22 +148,32 @@ export function createPuzzleWithSolution({ width = DEFAULT_WIDTH, height = DEFAU
     throw new Error('This MVP generator currently supports only 5x5 boards.');
   }
 
-  const transformed = transformBoard(BASE_SOLUTION, BASE_REGIONS, width);
-  const puzzle = {
-    width,
-    height,
-    regions: transformed.regions,
-  };
+  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
+    const transformed = transformBoard(BASE_SOLUTION, BASE_REGIONS, width);
+    const puzzle = {
+      width,
+      height,
+      regions: transformed.regions,
+    };
 
-  assertRegionsAreOrthogonallyConnected(puzzle);
+    assertRegionsAreOrthogonallyConnected(puzzle);
 
-  return {
-    puzzle: {
-      ...puzzle,
-      givens: createGivens(puzzle, transformed.values),
-    },
-    solution: transformed.values,
-  };
+    const givens = createGivens(puzzle, transformed.values);
+
+    if (countSolutions(puzzle, givens, 2) !== 1) {
+      continue;
+    }
+
+    return {
+      puzzle: {
+        ...puzzle,
+        givens,
+      },
+      solution: transformed.values,
+    };
+  }
+
+  throw new Error('Failed to generate a unique-solution puzzle.');
 }
 
 export function createPuzzle(options = {}) {

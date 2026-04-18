@@ -7,6 +7,19 @@ import {
   validateBoard,
 } from '../src/shared/validate.js';
 
+const AMBIGUOUS_PUZZLE = {
+  width: 5,
+  height: 5,
+  regions: [
+    4, 4, 4, 5, 6,
+    4, 4, 5, 5, 0,
+    3, 3, 0, 0, 0,
+    2, 3, 0, 1, 1,
+    2, 3, 3, 1, 1,
+  ],
+};
+const AMBIGUOUS_GIVENS = Array(25).fill(null);
+
 function getOrthogonalNeighborIndices(width, height, index) {
   const { row, column } = getCellPosition(width, index);
   const candidates = [
@@ -54,7 +67,11 @@ function assertRegionsAreOrthogonallyConnected(puzzle) {
   }
 }
 
-for (let iteration = 0; iteration < 30; iteration += 1) {
+if (countSolutions(AMBIGUOUS_PUZZLE, AMBIGUOUS_GIVENS, 2) < 2) {
+  throw new Error('Ambiguous regression fixture did not report multiple solutions.');
+}
+
+for (let iteration = 0; iteration < 100; iteration += 1) {
   const { puzzle, solution } = createPuzzleWithSolution();
 
   if (puzzle.givens.length !== puzzle.width * puzzle.height) {

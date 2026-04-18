@@ -8,6 +8,12 @@ const resetButton = document.querySelector('#reset-game');
 let puzzle = null;
 let values = [];
 let selectedIndex = null;
+let isLoadingPuzzle = false;
+
+function setControlsDisabled(disabled) {
+  newGameButton.disabled = disabled;
+  resetButton.disabled = disabled || puzzle === null;
+}
 
 function getRegionPalette(regionCount) {
   return Array.from({ length: regionCount }, (_, index) => {
@@ -71,6 +77,11 @@ function updateStatus(result) {
 }
 
 function renderBoard() {
+  if (!puzzle) {
+    boardElement.innerHTML = '';
+    return;
+  }
+
   const result = validateBoard(puzzle, values);
   const regionSizes = getRegionSizes(puzzle);
   const regionCount = Math.max(...puzzle.regions) + 1;
@@ -177,18 +188,33 @@ function setSelectedCellValue(value) {
 }
 
 async function loadPuzzle() {
-  statusElement.textContent = 'Loading puzzle…';
-
-  const response = await fetch('/api/puzzle');
-
-  if (!response.ok) {
-    throw new Error('Could not load a puzzle.');
+  if (isLoadingPuzzle) {
+    return;
   }
 
-  puzzle = await response.json();
-  values = [...puzzle.givens];
+  isLoadingPuzzle = true;
   selectedIndex = null;
-  renderBoard();
+  document.activeElement?.blur?.();
+  setControlsDisabled(true);
+  statusElement.textContent = 'Loading puzzle…';
+
+  try {
+    const response = await fetch('/api/puzzle', { cache: 'no-store' });
+
+    if (!response.ok) {
+      throw new Error('Could not load a puzzle.');
+    }
+
+    puzzle = await response.json();
+    values = [...puzzle.givens];
+    renderBoard();
+  } catch (error) {
+    console.error(error);
+    statusElement.textContent = 'Failed to load the puzzle.';
+  } finally {
+    isLoadingPuzzle = false;
+    setControlsDisabled(false);
+  }
 }
 
 document.addEventListener('keydown', (event) => {
@@ -206,8 +232,9 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-newGameButton.addEventListener('click', async () => {
-  await loadPuzzle();
+newGameButton.addEventListener('click', (event) => {
+  event.preventDefault();
+  void loadPuzzle();
 });
 
 resetButton.addEventListener('click', () => {
@@ -220,7 +247,4 @@ resetButton.addEventListener('click', () => {
   renderBoard();
 });
 
-loadPuzzle().catch((error) => {
-  console.error(error);
-  statusElement.textContent = 'Failed to load the puzzle.';
-});
+void loadPuzzle();

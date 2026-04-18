@@ -192,8 +192,8 @@ function chooseNextCellForSearch(puzzle, values) {
 }
 
 export function countSolutions(puzzle, values, limit = 2) {
-  const initialValues = [...values];
-  const initialState = validateBoard(puzzle, initialValues);
+  const searchValues = [...values];
+  const initialState = validateBoard(puzzle, searchValues);
 
   if (initialState.conflicts.size > 0) {
     return 0;
@@ -206,10 +206,13 @@ export function countSolutions(puzzle, values, limit = 2) {
       return;
     }
 
-    const nextCell = chooseNextCellForSearch(puzzle, initialValues);
+    const nextCell = chooseNextCellForSearch(puzzle, searchValues);
 
     if (nextCell === null) {
-      solutions += 1;
+      if (validateBoard(puzzle, searchValues).solved) {
+        solutions += 1;
+      }
+
       return;
     }
 
@@ -218,16 +221,20 @@ export function countSolutions(puzzle, values, limit = 2) {
     }
 
     for (const candidate of nextCell.candidates) {
-      initialValues[nextCell.index] = candidate;
-      search();
+      searchValues[nextCell.index] = candidate;
+      const nextState = validateBoard(puzzle, searchValues);
+
+      if (nextState.conflicts.size === 0) {
+        search();
+      }
 
       if (solutions >= limit) {
-        initialValues[nextCell.index] = null;
+        searchValues[nextCell.index] = null;
         return;
       }
-    }
 
-    initialValues[nextCell.index] = null;
+      searchValues[nextCell.index] = null;
+    }
   }
 
   search();
