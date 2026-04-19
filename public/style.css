@@ -207,6 +207,9 @@ button:not(.cell):disabled {
 .board-message {
   width: min(78vmin, var(--board-max-width));
   max-width: 100%;
+  min-height: 5.75rem;
+  display: grid;
+  align-content: center;
   padding: 1rem 1.25rem;
   border: 1px solid var(--board-message-border);
   border-radius: 18px;

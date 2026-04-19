@@ -38,6 +38,7 @@ let countdownRefreshTimeoutId = null;
 let discoveryPollTimeoutId = null;
 let discoveredMatches = [];
 let opponentGainAnimationTimeoutId = null;
+let renderFrameRequested = false;
 
 function isMultiplayerMode() {
   return matchSession !== null;
@@ -68,6 +69,18 @@ function closeEventSource() {
     eventSource.close();
     eventSource = null;
   }
+}
+
+function scheduleRender() {
+  if (renderFrameRequested) {
+    return;
+  }
+
+  renderFrameRequested = true;
+  window.requestAnimationFrame(() => {
+    renderFrameRequested = false;
+    renderBoard();
+  });
 }
 
 function resetToSoloMode(message, keepCurrentBoard = false) {
@@ -552,6 +565,7 @@ async function submitFinish() {
 }
 
 function renderBoard() {
+  renderFrameRequested = false;
   updateControlStates();
 
   if (!puzzle) {
@@ -671,7 +685,7 @@ function cycleCellValue(index) {
   const nextValue = currentValue >= maxValue ? null : currentValue + 1;
 
   values[index] = nextValue;
-  renderBoard();
+  scheduleRender();
 }
 
 function setSelectedCellValue(value) {
@@ -684,13 +698,13 @@ function setSelectedCellValue(value) {
 
   if (value === null) {
     values[selectedIndex] = null;
-    renderBoard();
+    scheduleRender();
     return;
   }
 
   if (value >= 1 && value <= maxValue) {
     values[selectedIndex] = value;
-    renderBoard();
+    scheduleRender();
   }
 }
 
@@ -786,7 +800,12 @@ async function loadPuzzle() {
   } finally {
     isLoadingPuzzle = false;
     updateControlStates();
-    updateBoardPresentation(puzzle ? validateBoard(puzzle, values) : null);
+
+    if (puzzle) {
+      renderBoard();
+    } else {
+      updateBoardPresentation();
+    }
   }
 }
 
@@ -822,7 +841,12 @@ async function hostRace() {
   } finally {
     isLoadingPuzzle = false;
     updateControlStates();
-    updateBoardPresentation(puzzle ? validateBoard(puzzle, values) : null);
+
+    if (puzzle) {
+      renderBoard();
+    } else {
+      updateBoardPresentation();
+    }
   }
 }
 
@@ -863,7 +887,12 @@ async function joinRaceByCode(roomCode) {
     isLoadingPuzzle = false;
     updateControlStates();
     renderDiscoveredMatches();
-    updateBoardPresentation(puzzle ? validateBoard(puzzle, values) : null);
+
+    if (puzzle) {
+      renderBoard();
+    } else {
+      updateBoardPresentation();
+    }
   }
 }
 
