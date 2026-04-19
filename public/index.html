@@ -19,8 +19,63 @@
           <button id="reset-game" type="button">Reset</button>
         </div>
         <p id="status" class="status">Loading puzzle…</p>
+        <section class="multiplayer-panel" aria-label="LAN race controls">
+          <h2>LAN race</h2>
+          <div class="controls multiplayer-controls">
+            <button id="host-race" type="button">Host race</button>
+            <div class="join-controls">
+              <input id="join-code" type="text" inputmode="text" maxlength="4" placeholder="Code" aria-label="Race code" />
+              <button id="join-race" type="button">Join race</button>
+            </div>
+          </div>
+          <div class="controls multiplayer-session-controls">
+            <button id="leave-race" type="button">Leave race</button>
+            <button id="close-race" type="button">Close race</button>
+          </div>
+          <p id="room-code" class="status match-status">Solo mode</p>
+          <p id="match-status" class="status match-status">
+            Host a race or join one from another device on your local network.
+          </p>
+          <section class="hosted-games" aria-label="Hosted games on your network">
+            <h3>Hosted games on your network</h3>
+            <div id="hosted-games-list" class="hosted-games-list">
+              <p class="status hosted-games-empty">No joinable hosted games found yet.</p>
+            </div>
+          </section>
+        </section>
       </section>
       <section class="board-panel">
+        <div id="board-message" class="board-message" role="status" aria-live="polite" aria-atomic="true">
+          <p id="board-message-title" class="board-message-title">Loading puzzle…</p>
+          <p id="board-message-detail" class="board-message-detail">Preparing the board.</p>
+        </div>
+        <section id="battle-strip" class="battle-strip" aria-label="Battle progress">
+          <div class="battle-strip-header">
+            <p id="battle-title" class="battle-title">Head-to-head race</p>
+            <span id="battle-delta" class="battle-delta">Waiting for opponent</span>
+          </div>
+          <div class="battle-lanes">
+            <div class="battle-lane battle-lane-you">
+              <div class="battle-lane-label-row">
+                <span class="battle-lane-label">You</span>
+                <span id="battle-you-count" class="battle-lane-count">0/0</span>
+              </div>
+              <div class="battle-meter">
+                <div id="battle-you-fill" class="battle-meter-fill battle-meter-fill-you"></div>
+              </div>
+            </div>
+            <div class="battle-lane battle-lane-opponent">
+              <div class="battle-lane-label-row">
+                <span class="battle-lane-label">Opponent</span>
+                <span id="battle-opponent-count" class="battle-lane-count">0/0</span>
+              </div>
+              <div class="battle-meter">
+                <div id="battle-opponent-fill" class="battle-meter-fill battle-meter-fill-opponent"></div>
+              </div>
+              <span id="battle-opponent-burst" class="battle-opponent-burst" aria-hidden="true">+1</span>
+            </div>
+          </div>
+        </section>
         <div id="board" class="board" aria-label="Tectonic puzzle board"></div>
       </section>
     </main>

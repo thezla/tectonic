@@ -10,9 +10,31 @@
   --cell-given-text: #102030;
   --cell-invalid-text: #9f1f1f;
   --cell-hover-overlay: rgba(255, 255, 255, 0.28);
+  --cell-lock-overlay: transparent;
   --cell-given-overlay: rgba(255, 255, 255, 0.16);
   --cell-invalid-overlay: rgba(255, 226, 226, 0.9);
   --cell-complete-overlay: rgba(230, 248, 234, 0.72);
+  --board-message-background: #f5f8fc;
+  --board-message-border: #d7e0ea;
+  --board-message-title: #102030;
+  --board-message-detail: #4f6173;
+  --board-message-warning-background: #fff2ec;
+  --board-message-warning-border: #f2cbc0;
+  --board-message-warning-title: #8f2e1f;
+  --board-message-success-background: #edf8f0;
+  --board-message-success-border: #cfe5d5;
+  --board-message-success-title: #1f6b3d;
+  --board-message-locked-background: #eef2f6;
+  --board-message-locked-border: #cfd8e1;
+  --board-message-locked-title: #314255;
+  --board-lock-overlay: rgba(230, 235, 241, 0.48);
+  --board-lock-shadow: rgba(37, 52, 69, 0.08);
+  --battle-background: #f5f8fc;
+  --battle-border: #d7e0ea;
+  --battle-you: #2b6ef2;
+  --battle-opponent: #dd5b52;
+  --battle-track: #e5ecf3;
+  --battle-flash: rgba(221, 91, 82, 0.22);
 }
 
 * {
@@ -51,7 +73,112 @@ body {
   margin: 1.5rem 0 1rem;
 }
 
-button {
+.multiplayer-panel {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #d9e1ea;
+}
+
+.multiplayer-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.multiplayer-controls {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.multiplayer-session-controls {
+  margin-top: 0;
+}
+
+.join-controls {
+  display: flex;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+#join-code {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #c5d0db;
+  border-radius: 999px;
+  color: #1d2733;
+  font: inherit;
+  padding: 0.75rem 1rem;
+  text-transform: uppercase;
+}
+
+#join-code:disabled {
+  background: #eef2f6;
+  color: #7a8794;
+}
+
+.match-status {
+  margin: 0.35rem 0;
+}
+
+.hosted-games {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #d9e1ea;
+}
+
+.hosted-games h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.hosted-games-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hosted-games-empty {
+  margin: 0;
+}
+
+.hosted-game-card {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #d7e0ea;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.hosted-game-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.hosted-game-title {
+  margin: 0;
+  color: #102030;
+  font-weight: 700;
+}
+
+.hosted-game-code {
+  color: #4f6173;
+  font-size: 0.92rem;
+}
+
+.hosted-game-detail {
+  margin: 0;
+  color: #4f6173;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.hosted-game-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+button:not(.cell) {
   border: 0;
   border-radius: 999px;
   background: #2b6ef2;
@@ -61,13 +188,211 @@ button {
   padding: 0.75rem 1.1rem;
 }
 
-button:hover {
+button:not(.cell):hover {
   background: #225acc;
+}
+
+button:not(.cell):disabled {
+  background: #b5c3d6;
+  cursor: not-allowed;
 }
 
 .board-panel {
   display: grid;
-  place-items: center;
+  gap: 1.25rem;
+  align-content: start;
+  justify-items: center;
+}
+
+.board-message {
+  width: min(78vmin, var(--board-max-width));
+  max-width: 100%;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--board-message-border);
+  border-radius: 18px;
+  background: var(--board-message-background);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.board-message[data-tone="warning"] {
+  background: var(--board-message-warning-background);
+  border-color: var(--board-message-warning-border);
+}
+
+.board-message[data-tone="success"] {
+  background: var(--board-message-success-background);
+  border-color: var(--board-message-success-border);
+}
+
+.board-message[data-tone="locked"] {
+  background: var(--board-message-locked-background);
+  border-color: var(--board-message-locked-border);
+}
+
+.board-message-title,
+.board-message-detail {
+  margin: 0;
+}
+
+.board-message-title {
+  color: var(--board-message-title);
+  font-size: clamp(1.1rem, 2.4vmin, 1.45rem);
+  font-weight: 700;
+}
+
+.board-message[data-tone="warning"] .board-message-title {
+  color: var(--board-message-warning-title);
+}
+
+.board-message[data-tone="success"] .board-message-title {
+  color: var(--board-message-success-title);
+}
+
+.board-message[data-tone="locked"] .board-message-title {
+  color: var(--board-message-locked-title);
+}
+
+.board-message-detail {
+  margin-top: 0.35rem;
+  color: var(--board-message-detail);
+  line-height: 1.5;
+}
+
+.battle-strip {
+  width: min(78vmin, var(--board-max-width));
+  max-width: 100%;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--battle-border);
+  border-radius: 18px;
+  background: var(--battle-background);
+}
+
+.battle-strip[hidden] {
+  display: none;
+}
+
+.battle-strip-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.battle-title,
+.battle-delta,
+.battle-lane-label,
+.battle-lane-count,
+.battle-opponent-burst {
+  margin: 0;
+}
+
+.battle-title {
+  color: #102030;
+  font-size: clamp(1rem, 2.1vmin, 1.2rem);
+  font-weight: 700;
+}
+
+.battle-delta {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: #e8eef9;
+  color: #244f9d;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.battle-lanes {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.battle-lane {
+  position: relative;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.battle-lane-label-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.battle-lane-label {
+  color: #304253;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.battle-lane-count {
+  color: #102030;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.battle-meter {
+  overflow: hidden;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--battle-track);
+}
+
+.battle-meter-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  transition: width 220ms ease, transform 220ms ease, filter 220ms ease;
+}
+
+.battle-meter-fill-you {
+  background: linear-gradient(90deg, #2058c8, var(--battle-you));
+}
+
+.battle-meter-fill-opponent {
+  background: linear-gradient(90deg, #bc4038, var(--battle-opponent));
+}
+
+.battle-opponent-burst {
+  position: absolute;
+  top: -0.25rem;
+  right: 0;
+  opacity: 0;
+  color: var(--battle-opponent);
+  font-size: 0.92rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.battle-lane-opponent.battle-lane-hit .battle-meter-fill-opponent {
+  transform: scaleY(1.18);
+  filter: brightness(1.06);
+}
+
+.battle-lane-opponent.battle-lane-hit .battle-meter {
+  box-shadow: 0 0 0 6px var(--battle-flash);
+}
+
+.battle-lane-opponent.battle-lane-hit .battle-opponent-burst {
+  animation: opponent-burst 620ms ease-out;
+}
+
+@keyframes opponent-burst {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.8);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(1.02);
+  }
 }
 
 .board {
@@ -75,10 +400,17 @@ button:hover {
   gap: 0;
   width: min(78vmin, var(--board-max-width));
   max-width: 100%;
+  transition: box-shadow 160ms ease;
+}
+
+.board.locked {
+  pointer-events: none;
+  box-shadow: 0 0 0 1px var(--board-message-locked-border), 0 16px 32px var(--board-lock-shadow);
 }
 
 .cell {
   --cell-state-overlay: transparent;
+  --cell-lock-overlay: transparent;
   appearance: none;
   aspect-ratio: 1;
   display: grid;
@@ -88,6 +420,7 @@ button:hover {
   border-radius: 0;
   background:
     linear-gradient(var(--cell-state-overlay), var(--cell-state-overlay)),
+    linear-gradient(var(--cell-lock-overlay), var(--cell-lock-overlay)),
     var(--region-color, #f8fafc);
   border-style: solid;
   border-color: var(--cell-border-color);
@@ -104,7 +437,15 @@ button:hover {
 }
 
 .cell:disabled {
+  background:
+    linear-gradient(var(--cell-state-overlay), var(--cell-state-overlay)),
+    linear-gradient(var(--cell-lock-overlay), var(--cell-lock-overlay)),
+    var(--region-color, #f8fafc);
   cursor: default;
+}
+
+.board.locked .cell {
+  --cell-lock-overlay: var(--board-lock-overlay);
 }
 
 .cell:disabled:hover {
@@ -133,6 +474,10 @@ button:hover {
   color: var(--cell-invalid-text);
 }
 
+.cell.locked {
+  cursor: not-allowed;
+}
+
 .legend {
   margin-top: 1rem;
 }
@@ -143,6 +488,14 @@ button:hover {
   }
 
   .board {
+    width: min(92vw, var(--board-max-width));
+  }
+
+  .board-message {
+    width: min(92vw, var(--board-max-width));
+  }
+
+  .battle-strip {
     width: min(92vw, var(--board-max-width));
   }
 }
