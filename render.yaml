@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: tectonic
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: CLOUD_MODE
+        value: true

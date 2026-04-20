@@ -39,6 +39,7 @@ let discoveryPollTimeoutId = null;
 let discoveredMatches = [];
 let opponentGainAnimationTimeoutId = null;
 let renderFrameRequested = false;
+let lanDiscoveryEnabled = true;
 
 function isMultiplayerMode() {
   return matchSession !== null;
@@ -129,6 +130,17 @@ function clearDiscoveryRefresh() {
 }
 
 function renderDiscoveredMatches() {
+  const hostedGamesSection = document.querySelector('.hosted-games');
+
+  if (hostedGamesSection) {
+    hostedGamesSection.hidden = !lanDiscoveryEnabled;
+  }
+
+  if (!lanDiscoveryEnabled) {
+    hostedGamesListElement.innerHTML = '';
+    return;
+  }
+
   hostedGamesListElement.innerHTML = '';
 
   if (discoveredMatches.length === 0) {
@@ -186,15 +198,19 @@ async function refreshDiscoveredMatches() {
     }
 
     const payload = await response.json();
+    lanDiscoveryEnabled = payload.enabled !== false;
     discoveredMatches = payload.matches ?? [];
     renderDiscoveredMatches();
   } catch (error) {
     console.error(error);
   } finally {
     clearDiscoveryRefresh();
-    discoveryPollTimeoutId = window.setTimeout(() => {
-      void refreshDiscoveredMatches();
-    }, 2000);
+
+    if (lanDiscoveryEnabled) {
+      discoveryPollTimeoutId = window.setTimeout(() => {
+        void refreshDiscoveredMatches();
+      }, 2000);
+    }
   }
 }
 
@@ -309,7 +325,9 @@ function triggerOpponentGainAnimation(gainAmount) {
 function updateMatchStatus() {
   if (!matchSession) {
     roomCodeElement.textContent = 'Solo mode';
-    matchStatusElement.textContent = 'Host a race or join one from another device on your local network.';
+    matchStatusElement.textContent = lanDiscoveryEnabled
+      ? 'Host a race or join one from another device on your local network.'
+      : 'Host a race or join one by room code.';
     return;
   }
 

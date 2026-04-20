@@ -14,11 +14,13 @@ const publicDir = path.join(__dirname, 'public');
 const sharedDir = path.join(__dirname, 'src', 'shared');
 const matches = new Map();
 const MATCH_START_DELAY_MS = 3000;
+const cloudMode = process.env.CLOUD_MODE === 'true';
+const lanDiscoveryEnabled = !cloudMode && process.env.LAN_DISCOVERY_ENABLED !== 'false';
 const DISCOVERY_PORT = Number.parseInt(process.env.DISCOVERY_PORT ?? '32145', 10);
 const DISCOVERY_INTERVAL_MS = 2000;
 const DISCOVERY_TTL_MS = 7000;
 const instanceId = createId(10);
-const discoverySocket = dgram.createSocket('udp4');
+const discoverySocket = lanDiscoveryEnabled ? dgram.createSocket('udp4') : null;
 const remoteDiscoveryEntries = new Map();
 
 const MIME_TYPES = {
@@ -315,6 +317,10 @@ function getJoinableMatches() {
 }
 
 function getDiscoverySnapshot() {
+  if (!lanDiscoveryEnabled) {
+    return [];
+  }
+
   const now = Date.now();
   const localAddress = getLanAddress();
   const localEntries = getJoinableMatches().map((match) => ({
@@ -338,6 +344,10 @@ function getDiscoverySnapshot() {
 }
 
 function pruneDiscoveryEntries() {
+  if (!lanDiscoveryEnabled) {
+    return;
+  }
+
   const now = Date.now();
 
   for (const [key, entry] of remoteDiscoveryEntries.entries()) {
@@ -348,6 +358,10 @@ function pruneDiscoveryEntries() {
 }
 
 function broadcastDiscovery() {
+  if (!lanDiscoveryEnabled || !discoverySocket) {
+    return;
+  }
+
   const joinableMatches = getJoinableMatches();
 
   if (joinableMatches.length === 0) {
@@ -375,6 +389,10 @@ function broadcastDiscovery() {
 }
 
 function handleDiscoveryMessage(message) {
+  if (!lanDiscoveryEnabled) {
+    return;
+  }
+
   try {
     const payload = JSON.parse(message.toString('utf8'));
 
@@ -444,8 +462,8 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/discovery/matches') {
-    pruneDiscoveryEntries();
     sendJson(response, 200, {
+      enabled: lanDiscoveryEnabled,
       matches: getDiscoverySnapshot(),
     });
     return;
@@ -687,15 +705,17 @@ const server = http.createServer(async (request, response) => {
 
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
 
-discoverySocket.on('message', handleDiscoveryMessage);
-discoverySocket.on('listening', () => {
-  discoverySocket.setBroadcast(true);
-});
-discoverySocket.bind(DISCOVERY_PORT);
-setInterval(() => {
-  pruneDiscoveryEntries();
-  broadcastDiscovery();
-}, DISCOVERY_INTERVAL_MS);
+if (lanDiscoveryEnabled && discoverySocket) {
+  discoverySocket.on('message', handleDiscoveryMessage);
+  discoverySocket.on('listening', () => {
+    discoverySocket.setBroadcast(true);
+  });
+  discoverySocket.bind(DISCOVERY_PORT);
+  setInterval(() => {
+    pruneDiscoveryEntries();
+    broadcastDiscovery();
+  }, DISCOVERY_INTERVAL_MS);
+}
 
 server.listen(port, () => {
   console.log(`Tectonic is running at http://localhost:${port}`);
