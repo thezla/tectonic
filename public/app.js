@@ -2,6 +2,9 @@ import { getRegionSizes, validateBoard } from '/shared/validate.js';
 
 const boardElement = document.querySelector('#board');
 const boardPanelElement = document.querySelector('.board-panel');
+const openMenuButton = document.querySelector('#open-menu');
+const closeMenuButton = document.querySelector('#close-menu');
+const optionsModalElement = document.querySelector('#options-modal');
 const boardRoomCodeElement = document.querySelector('#board-room-code');
 const boardRoomCodeLabelElement = document.querySelector('#board-room-code-label');
 const boardRoomCodeValueElement = document.querySelector('#board-room-code-value');
@@ -165,7 +168,7 @@ function renderDiscoveredMatches() {
 
     const title = document.createElement('p');
     title.className = 'hosted-game-title';
-    title.textContent = match.host || 'LAN host';
+    title.textContent = match.host || 'Room host';
 
     const code = document.createElement('span');
     code.className = 'hosted-game-code';
@@ -199,7 +202,7 @@ async function refreshDiscoveredMatches() {
     const response = await fetch('/api/discovery/matches', { cache: 'no-store' });
 
     if (!response.ok) {
-      throw new Error('Could not load LAN hosted games.');
+      throw new Error('Could not load hosted games.');
     }
 
     const payload = await response.json();
@@ -1087,6 +1090,33 @@ document.addEventListener('keydown', (event) => {
 boardElement.addEventListener('dblclick', (event) => {
   event.preventDefault();
 });
+
+if (openMenuButton && optionsModalElement) {
+  openMenuButton.addEventListener('click', () => {
+    optionsModalElement.showModal();
+  });
+}
+
+if (closeMenuButton && optionsModalElement) {
+  closeMenuButton.addEventListener('click', () => {
+    optionsModalElement.close();
+  });
+}
+
+if (optionsModalElement) {
+  optionsModalElement.addEventListener('click', (event) => {
+    const modalRect = optionsModalElement.getBoundingClientRect();
+    const clickedOutside =
+      event.clientX < modalRect.left ||
+      event.clientX > modalRect.right ||
+      event.clientY < modalRect.top ||
+      event.clientY > modalRect.bottom;
+
+    if (clickedOutside) {
+      optionsModalElement.close();
+    }
+  });
+}
 
 newGameButton.addEventListener('click', (event) => {
   event.preventDefault();
