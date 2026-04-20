@@ -95,20 +95,40 @@ Changes:
 
 ---
 
+### Standalone board message removed (current session)
+
+**Goal**: Eliminate the remaining text-only status card above the board and rely on the locked-board overlay plus the battle strip instead.
+
+Changes:
+
+#### `public/index.html`
+- Removed the standalone `#board-message` element from the board panel entirely.
+
+#### `public/app.js`
+- Dropped DOM refs for `#board-message`, `#board-message-title`, and `#board-message-detail`.
+- Simplified `updateBoardPresentation()` so it only manages the locked board styling, overlay title, and overlay room-code content.
+- Kept `getBoardMessage()` as the source of locked overlay titles, but non-locked board states no longer render a separate message card.
+
+#### `public/style.css`
+- Removed all `.board-message*` rules and the corresponding mobile overrides.
+- Removed the now-unused non-locked `--board-message-*` theme tokens and old room-code card color tokens from `:root`.
+- Left the battle strip styles intact as the persistent multiplayer status surface.
+
+---
+
 ## Current State
 
 - The board panel is compact on mobile: hamburger menu → options modal for controls, always-visible battle strip.
 - Locked states (loading, waiting for opponent, countdown, game over) overlay the board directly. When a match session is active, the overlay also surfaces the room code prominently (big lettering) above the locked title.
 - Once the race is active (board unlocked), the room code is shown inline next to the "Head-to-head race" title in the battle-strip header, in small tracked font.
 - Closing a hosted race or leaving as a guest immediately clears both room-code surfaces; the modal returns to "Solo mode".
-- Non-locked messages (puzzle in progress, warnings, success) continue to appear as a card above the board.
+- There is no standalone text-status box above the board anymore; locked messaging lives on the board overlay, and multiplayer progress/status lives in the battle strip.
 
 ---
 
 ## Known Considerations / Potential Next Steps
 
-- The `board-message` card still renders and drives ARIA live-region announcements (`role="status" aria-live="polite"`) even when visually hidden — this is intentional for accessibility.
-- The overlay currently shows only the locked `title` text (plus room code). The `detail` text is omitted from the overlay to keep it compact; it remains in the hidden card for screen readers.
+- The overlay currently shows only the locked `title` text (plus room code). The former `detail` text is no longer surfaced in the board area.
 - When the local player wins a race (`tone === 'success'`), the overlay is hidden and the inline code is also hidden (since `status === 'finished'`). The race code is still visible in the options modal. If surfacing it inline post-victory is desired, extend the `showInlineRoomCode` check in `updateBattleStrip()`.
 - Consider animating the overlay fade-in/out to match the existing `160ms ease` transition style used elsewhere.
 - The battle strip is always visible during a multiplayer match; consider hiding it during countdown/waiting when there is no meaningful progress to display.

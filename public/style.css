@@ -14,17 +14,6 @@
   --cell-given-overlay: rgba(255, 255, 255, 0.16);
   --cell-invalid-overlay: rgba(255, 226, 226, 0.9);
   --cell-complete-overlay: rgba(230, 248, 234, 0.72);
-  --board-message-background: #f5f8fc;
-  --board-message-border: #d7e0ea;
-  --board-message-title: #102030;
-  --board-message-detail: #4f6173;
-  --board-message-warning-background: #fff2ec;
-  --board-message-warning-border: #f2cbc0;
-  --board-message-warning-title: #8f2e1f;
-  --board-message-success-background: #edf8f0;
-  --board-message-success-border: #cfe5d5;
-  --board-message-success-title: #1f6b3d;
-  --board-message-locked-background: #eef2f6;
   --board-message-locked-border: #cfd8e1;
   --board-message-locked-title: #314255;
   --board-lock-overlay: rgba(230, 235, 241, 0.48);
@@ -35,13 +24,8 @@
   --battle-opponent: #dd5b52;
   --battle-track: #e5ecf3;
   --battle-flash: rgba(221, 91, 82, 0.22);
-  --room-code-background: #eef4ff;
-  --room-code-border: #cfdbef;
   --room-code-title: #274e8b;
   --room-code-value: #102030;
-  --room-code-detail: #4f6173;
-  --room-code-host-background: #e8f0ff;
-  --room-code-host-border: #bed0ee;
 }
 
 * {
@@ -277,69 +261,6 @@ button:not(.cell):disabled {
   min-height: 2.3rem;
   padding: 0;
   border-radius: 50%;
-}
-
-.board-message {
-  width: 100%;
-  max-width: var(--board-max-width);
-  min-height: 6.2rem;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  align-content: start;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--board-message-border);
-  border-radius: 18px;
-  background: var(--board-message-background);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-.board-message[data-tone="warning"] {
-  background: var(--board-message-warning-background);
-  border-color: var(--board-message-warning-border);
-}
-
-.board-message[data-tone="success"] {
-  background: var(--board-message-success-background);
-  border-color: var(--board-message-success-border);
-}
-
-.board-message[data-tone="locked"] {
-  background: var(--board-message-locked-background);
-  border-color: var(--board-message-locked-border);
-}
-
-.board-message-title,
-.board-message-detail {
-  margin: 0;
-}
-
-.board-message-title {
-  color: var(--board-message-title);
-  font-size: clamp(1.1rem, 2.4vmin, 1.45rem);
-  font-weight: 700;
-  line-height: 1.25;
-  min-height: 1.4em;
-}
-
-.board-message[data-tone="warning"] .board-message-title {
-  color: var(--board-message-warning-title);
-}
-
-.board-message[data-tone="success"] .board-message-title {
-  color: var(--board-message-success-title);
-}
-
-.board-message[data-tone="locked"] .board-message-title {
-  color: var(--board-message-locked-title);
-}
-
-.board-message-detail {
-  margin-top: 0.35rem;
-  color: var(--board-message-detail);
-  line-height: 1.4;
-  min-height: 2.8em;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .battle-strip {
@@ -712,7 +633,6 @@ button:not(.cell):disabled {
     width: 100%;
   }
 
-  .board-message,
   .battle-strip {
     padding: 0.7rem 0.8rem;
     border-radius: 14px;
@@ -732,19 +652,6 @@ button:not(.cell):disabled {
   .battle-room-code {
     font-size: 0.72rem;
     letter-spacing: 0.14em;
-  }
-
-  .board-message {
-    min-height: 5rem;
-  }
-
-  .board-message-title {
-    font-size: 0.98rem;
-  }
-
-  .board-message-detail {
-    font-size: 0.85rem;
-    min-height: 2.6em;
   }
 
   .battle-title {

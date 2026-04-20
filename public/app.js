@@ -5,9 +5,6 @@ const boardPanelElement = document.querySelector('.board-panel');
 const openMenuButton = document.querySelector('#open-menu');
 const closeMenuButton = document.querySelector('#close-menu');
 const optionsModalElement = document.querySelector('#options-modal');
-const boardMessageElement = document.querySelector('#board-message');
-const boardMessageTitleElement = document.querySelector('#board-message-title');
-const boardMessageDetailElement = document.querySelector('#board-message-detail');
 const boardLockedOverlayElement = document.querySelector('#board-locked-overlay');
 const boardLockedOverlayTitleElement = document.querySelector('#board-locked-overlay-title');
 const boardLockedOverlayRoomCodeElement = document.querySelector('#board-locked-overlay-room-code');
@@ -486,18 +483,13 @@ function getBoardMessage(result) {
 
 function updateBoardPresentation(result = null) {
   const boardLocked = !getEditableBoardState();
-  const { tone, title, detail } = getBoardMessage(result);
+  const { tone, title } = getBoardMessage(result);
 
   boardPanelElement.classList.toggle('locked', boardLocked);
   boardElement.classList.toggle('locked', boardLocked);
-  boardMessageElement.dataset.tone = tone;
-  boardMessageTitleElement.textContent = title;
-  boardMessageDetailElement.textContent = detail;
 
-  // When the board is locked, show the compact overlay on top of the board
-  // and hide the standalone message card to save vertical space.
+  // Locked states still surface their title directly over the board.
   const showOverlay = tone === 'locked';
-  boardMessageElement.hidden = showOverlay;
   if (boardLockedOverlayElement) {
     boardLockedOverlayElement.hidden = !showOverlay;
     if (boardLockedOverlayTitleElement) {
