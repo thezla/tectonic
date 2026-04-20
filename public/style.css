@@ -35,6 +35,13 @@
   --battle-opponent: #dd5b52;
   --battle-track: #e5ecf3;
   --battle-flash: rgba(221, 91, 82, 0.22);
+  --room-code-background: #eef4ff;
+  --room-code-border: #cfdbef;
+  --room-code-title: #274e8b;
+  --room-code-value: #102030;
+  --room-code-detail: #4f6173;
+  --room-code-host-background: #e8f0ff;
+  --room-code-host-border: #bed0ee;
 }
 
 * {
@@ -48,13 +55,15 @@ body {
 .layout {
   min-height: 100vh;
   display: grid;
-  gap: 2rem;
+  gap: clamp(1rem, 3vw, 2rem);
   grid-template-columns: minmax(260px, 340px) 1fr;
-  padding: 2rem;
+  padding: clamp(1rem, 3vw, 2rem);
 }
 
 .panel,
 .board-panel {
+  width: 100%;
+  min-width: 0;
   background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 16px 40px rgba(19, 35, 58, 0.1);
@@ -69,8 +78,13 @@ body {
 
 .controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin: 1.5rem 0 1rem;
+}
+
+.controls > * {
+  min-width: 0;
 }
 
 .multiplayer-panel {
@@ -96,7 +110,8 @@ body {
 .join-controls {
   display: flex;
   gap: 0.75rem;
-  flex: 1;
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 #join-code {
@@ -185,6 +200,7 @@ button:not(.cell) {
   color: #ffffff;
   cursor: pointer;
   font: inherit;
+  max-width: 100%;
   padding: 0.75rem 1.1rem;
 }
 
@@ -204,9 +220,53 @@ button:not(.cell):disabled {
   justify-items: center;
 }
 
+.board-room-code {
+  width: 100%;
+  max-width: var(--board-max-width);
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--room-code-border);
+  border-radius: 18px;
+  background: var(--room-code-background);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.board-room-code[data-role="host"] {
+  border-color: var(--room-code-host-border);
+  background: var(--room-code-host-background);
+}
+
+.board-room-code-label,
+.board-room-code-value,
+.board-room-code-detail {
+  margin: 0;
+}
+
+.board-room-code-label {
+  color: var(--room-code-title);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.board-room-code-value {
+  color: var(--room-code-value);
+  font-size: clamp(1.75rem, 5vw, 2.7rem);
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+}
+
+.board-room-code-detail {
+  color: var(--room-code-detail);
+  line-height: 1.5;
+}
+
 .board-message {
-  width: min(78vmin, var(--board-max-width));
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--board-max-width);
   min-height: 5.75rem;
   display: grid;
   align-content: center;
@@ -262,8 +322,8 @@ button:not(.cell):disabled {
 }
 
 .battle-strip {
-  width: min(78vmin, var(--board-max-width));
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--board-max-width);
   padding: 1rem 1.25rem;
   border: 1px solid var(--battle-border);
   border-radius: 18px;
@@ -401,8 +461,8 @@ button:not(.cell):disabled {
 .board {
   display: grid;
   gap: 0;
-  width: min(78vmin, var(--board-max-width));
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--board-max-width);
   transition: box-shadow 160ms ease;
 }
 
@@ -490,15 +550,44 @@ button:not(.cell):disabled {
     grid-template-columns: 1fr;
   }
 
-  .board {
-    width: min(92vw, var(--board-max-width));
+  .panel,
+  .board-panel {
+    padding: 1rem;
   }
 
-  .board-message {
-    width: min(92vw, var(--board-max-width));
+  .controls {
+    margin: 1rem 0;
   }
 
+  .controls > button:not(.cell),
+  .join-controls {
+    flex: 1 1 100%;
+  }
+
+  .join-controls {
+    flex-wrap: wrap;
+  }
+
+  #join-code,
+  .join-controls button {
+    width: 100%;
+  }
+
+  .board-room-code,
+  .board-message,
   .battle-strip {
-    width: min(92vw, var(--board-max-width));
+    padding: 1rem;
+  }
+
+  .board-room-code-value {
+    font-size: clamp(1.6rem, 9vw, 2.3rem);
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+  }
+
+  .battle-strip-header,
+  .battle-lane-label-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

@@ -2,6 +2,10 @@ import { getRegionSizes, validateBoard } from '/shared/validate.js';
 
 const boardElement = document.querySelector('#board');
 const boardPanelElement = document.querySelector('.board-panel');
+const boardRoomCodeElement = document.querySelector('#board-room-code');
+const boardRoomCodeLabelElement = document.querySelector('#board-room-code-label');
+const boardRoomCodeValueElement = document.querySelector('#board-room-code-value');
+const boardRoomCodeDetailElement = document.querySelector('#board-room-code-detail');
 const boardMessageElement = document.querySelector('#board-message');
 const boardMessageTitleElement = document.querySelector('#board-message-title');
 const boardMessageDetailElement = document.querySelector('#board-message-detail');
@@ -285,6 +289,22 @@ function getFilledCount() {
   return values.filter((value) => value !== null).length;
 }
 
+function getScoredFilledCount(result) {
+  if (!puzzle) {
+    return 0;
+  }
+
+  let filledCount = 0;
+
+  for (let index = 0; index < values.length; index += 1) {
+    if (values[index] !== null && !result.conflicts.has(index)) {
+      filledCount += 1;
+    }
+  }
+
+  return filledCount;
+}
+
 function getLocalPlayerState() {
   if (!matchSession) {
     return null;
@@ -325,6 +345,10 @@ function triggerOpponentGainAnimation(gainAmount) {
 function updateMatchStatus() {
   if (!matchSession) {
     roomCodeElement.textContent = 'Solo mode';
+    if (boardRoomCodeElement) {
+      boardRoomCodeElement.hidden = true;
+      delete boardRoomCodeElement.dataset.role;
+    }
     matchStatusElement.textContent = lanDiscoveryEnabled
       ? 'Host a race or join one from another device on your local network.'
       : 'Host a race or join one by room code.';
@@ -332,6 +356,31 @@ function updateMatchStatus() {
   }
 
   roomCodeElement.textContent = `Race code: ${matchSession.match.roomCode}`;
+
+  if (boardRoomCodeElement && boardRoomCodeLabelElement && boardRoomCodeValueElement && boardRoomCodeDetailElement) {
+    const isHost = matchSession.role === 'host';
+    let detail = 'You are connected to this race room.';
+
+    if (isHost && matchSession.match.status === 'waiting') {
+      detail = 'Share this code with another player to unlock the board and start the race.';
+    } else if (isHost && matchSession.match.status === 'countdown') {
+      detail = 'Both players are connected. The race begins when the countdown ends.';
+    } else if (isHost && matchSession.match.status === 'finished') {
+      detail = 'This room stays tied to the finished race until you close it.';
+    } else if (isHost) {
+      detail = 'Keep this code handy if another player needs to reconnect to your race.';
+    } else if (matchSession.match.status === 'waiting') {
+      detail = 'You are connected and waiting for the host to begin the race.';
+    } else if (matchSession.match.status === 'countdown') {
+      detail = 'You are locked in. The race starts as soon as the countdown ends.';
+    }
+
+    boardRoomCodeElement.hidden = false;
+    boardRoomCodeElement.dataset.role = isHost ? 'host' : 'guest';
+    boardRoomCodeLabelElement.textContent = isHost ? 'Host room code' : 'Race room code';
+    boardRoomCodeValueElement.textContent = matchSession.match.roomCode;
+    boardRoomCodeDetailElement.textContent = detail;
+  }
 
   if (matchSession.match.status === 'waiting') {
     matchStatusElement.textContent = 'Waiting for another player to join. The board will unlock as soon as the second player joins the race.';
@@ -355,9 +404,7 @@ function updateMatchStatus() {
     return;
   }
 
-  const opponent = getOpponentPlayerState();
-  const opponentProgress = opponent ? `${opponent.filledCount}/${values.length}` : 'waiting';
-  matchStatusElement.textContent = `Race active. You: ${getFilledCount()}/${values.length}. Opponent: ${opponentProgress}.`;
+  matchStatusElement.textContent = 'Race in progress. The battle strip shows live progress.';
 }
 
 function getBoardMessage(result) {
@@ -424,13 +471,10 @@ function getBoardMessage(result) {
   }
 
   if (matchSession?.match.status === 'active') {
-    const opponent = getOpponentPlayerState();
-    const opponentProgress = opponent ? `${opponent.filledCount}/${values.length}` : 'waiting';
-
     return {
       tone: 'info',
-      title: 'Race active',
-      detail: `You: ${getFilledCount()}/${values.length}. Opponent: ${opponentProgress}.`,
+      title: 'Keep the board clean',
+      detail: 'Every conflict-free placement pushes your battle bar forward.',
     };
   }
 
@@ -465,7 +509,8 @@ function updateBattleStrip() {
   }
 
   const totalCells = values.length || puzzle?.givens?.length || 0;
-  const localCount = getFilledCount();
+  const result = puzzle ? validateBoard(puzzle, values) : null;
+  const localCount = result ? getScoredFilledCount(result) : 0;
   const opponent = getOpponentPlayerState();
   const opponentCount = opponent?.filledCount ?? 0;
   const localPercent = totalCells > 0 ? (localCount / totalCells) * 100 : 0;
@@ -515,7 +560,14 @@ function updateStatus(result) {
   }
 
   if (result.conflicts.size > 0) {
-    statusElement.textContent = 'There is a rule conflict on the board.';
+    statusElement.textContent = matchSession?.match.status === 'active'
+      ? 'There is a rule conflict on the board. Conflicted cells do not count toward your race score.'
+      : 'There is a rule conflict on the board.';
+    return;
+  }
+
+  if (matchSession?.match.status === 'active') {
+    statusElement.textContent = 'Your board is clear. Keep going.';
     return;
   }
 
@@ -538,12 +590,12 @@ async function postJson(url, payload) {
   return response.json();
 }
 
-function scheduleProgressUpdate() {
+function scheduleProgressUpdate(result) {
   if (!matchSession || matchSession.match.status !== 'active') {
     return;
   }
 
-  const filledCount = getFilledCount();
+  const filledCount = getScoredFilledCount(result);
 
   if (lastReportedFilledCount === filledCount) {
     return;
@@ -688,7 +740,7 @@ function renderBoard() {
   scheduleCountdownRefresh();
 
   if (matchSession && matchSession.match.status === 'active') {
-    scheduleProgressUpdate();
+    scheduleProgressUpdate(result);
 
     if (result.solved) {
       void submitFinish();
