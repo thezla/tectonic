@@ -2,13 +2,15 @@ import { getRegionSizes, validateBoard } from '/shared/validate.js';
 
 const boardElement = document.querySelector('#board');
 const boardPanelElement = document.querySelector('.board-panel');
-const boardRoomCodeElement = document.querySelector('#board-room-code');
-const boardRoomCodeLabelElement = document.querySelector('#board-room-code-label');
-const boardRoomCodeValueElement = document.querySelector('#board-room-code-value');
-const boardRoomCodeDetailElement = document.querySelector('#board-room-code-detail');
-const boardMessageElement = document.querySelector('#board-message');
-const boardMessageTitleElement = document.querySelector('#board-message-title');
-const boardMessageDetailElement = document.querySelector('#board-message-detail');
+const openMenuButton = document.querySelector('#open-menu');
+const closeMenuButton = document.querySelector('#close-menu');
+const optionsModalElement = document.querySelector('#options-modal');
+const boardLockedOverlayElement = document.querySelector('#board-locked-overlay');
+const boardLockedOverlayTitleElement = document.querySelector('#board-locked-overlay-title');
+const boardLockedOverlayRoomCodeElement = document.querySelector('#board-locked-overlay-room-code');
+const boardLockedOverlayLabelElement = document.querySelector('#board-locked-overlay-label');
+const boardLockedOverlayCodeElement = document.querySelector('#board-locked-overlay-code');
+const battleRoomCodeElement = document.querySelector('#battle-room-code');
 const battleStripElement = document.querySelector('#battle-strip');
 const battleTitleElement = document.querySelector('#battle-title');
 const battleDeltaElement = document.querySelector('#battle-delta');
@@ -100,6 +102,11 @@ function resetToSoloMode(message, keepCurrentBoard = false) {
   roomCodeElement.textContent = 'Solo mode';
   matchStatusElement.textContent = message;
 
+  // Immediately drop any room-code UI tied to the now-closed match so the
+  // header/overlay don't flash the stale code while the next render happens.
+  resetRoomCodeDisplays();
+  updateBattleStrip();
+
   if (keepCurrentBoard && puzzle) {
     renderBoard();
     return;
@@ -165,7 +172,7 @@ function renderDiscoveredMatches() {
 
     const title = document.createElement('p');
     title.className = 'hosted-game-title';
-    title.textContent = match.host || 'LAN host';
+    title.textContent = match.host || 'Room host';
 
     const code = document.createElement('span');
     code.className = 'hosted-game-code';
@@ -199,7 +206,7 @@ async function refreshDiscoveredMatches() {
     const response = await fetch('/api/discovery/matches', { cache: 'no-store' });
 
     if (!response.ok) {
-      throw new Error('Could not load LAN hosted games.');
+      throw new Error('Could not load hosted games.');
     }
 
     const payload = await response.json();
@@ -343,13 +350,26 @@ function triggerOpponentGainAnimation(gainAmount) {
   }, 700);
 }
 
+function resetRoomCodeDisplays() {
+  if (boardLockedOverlayRoomCodeElement) {
+    boardLockedOverlayRoomCodeElement.hidden = true;
+  }
+  if (boardLockedOverlayCodeElement) {
+    boardLockedOverlayCodeElement.textContent = '';
+  }
+  if (boardLockedOverlayLabelElement) {
+    boardLockedOverlayLabelElement.textContent = '';
+  }
+  if (battleRoomCodeElement) {
+    battleRoomCodeElement.hidden = true;
+    battleRoomCodeElement.textContent = '';
+  }
+}
+
 function updateMatchStatus() {
   if (!matchSession) {
     roomCodeElement.textContent = 'Solo mode';
-    if (boardRoomCodeElement) {
-      boardRoomCodeElement.hidden = true;
-      delete boardRoomCodeElement.dataset.role;
-    }
+    resetRoomCodeDisplays();
     matchStatusElement.textContent = lanDiscoveryEnabled
       ? 'Host a race or join one from another device on your local network.'
       : 'Host a race or join one by room code.';
@@ -357,31 +377,6 @@ function updateMatchStatus() {
   }
 
   roomCodeElement.textContent = `Race code: ${matchSession.match.roomCode}`;
-
-  if (boardRoomCodeElement && boardRoomCodeLabelElement && boardRoomCodeValueElement && boardRoomCodeDetailElement) {
-    const isHost = matchSession.role === 'host';
-    let detail = 'You are connected to this race room.';
-
-    if (isHost && matchSession.match.status === 'waiting') {
-      detail = 'Share this code with another player to unlock the board and start the race.';
-    } else if (isHost && matchSession.match.status === 'countdown') {
-      detail = 'Both players are connected. The race begins when the countdown ends.';
-    } else if (isHost && matchSession.match.status === 'finished') {
-      detail = 'This room stays tied to the finished race until you close it.';
-    } else if (isHost) {
-      detail = 'Keep this code handy if another player needs to reconnect to your race.';
-    } else if (matchSession.match.status === 'waiting') {
-      detail = 'You are connected and waiting for the host to begin the race.';
-    } else if (matchSession.match.status === 'countdown') {
-      detail = 'You are locked in. The race starts as soon as the countdown ends.';
-    }
-
-    boardRoomCodeElement.hidden = false;
-    boardRoomCodeElement.dataset.role = isHost ? 'host' : 'guest';
-    boardRoomCodeLabelElement.textContent = isHost ? 'Host room code' : 'Race room code';
-    boardRoomCodeValueElement.textContent = matchSession.match.roomCode;
-    boardRoomCodeDetailElement.textContent = detail;
-  }
 
   if (matchSession.match.status === 'waiting') {
     matchStatusElement.textContent = 'Waiting for another player to join. The board will unlock as soon as the second player joins the race.';
@@ -488,13 +483,38 @@ function getBoardMessage(result) {
 
 function updateBoardPresentation(result = null) {
   const boardLocked = !getEditableBoardState();
-  const { tone, title, detail } = getBoardMessage(result);
+  const { tone, title } = getBoardMessage(result);
 
   boardPanelElement.classList.toggle('locked', boardLocked);
   boardElement.classList.toggle('locked', boardLocked);
-  boardMessageElement.dataset.tone = tone;
-  boardMessageTitleElement.textContent = title;
-  boardMessageDetailElement.textContent = detail;
+
+  // Locked states still surface their title directly over the board.
+  const showOverlay = tone === 'locked';
+  if (boardLockedOverlayElement) {
+    boardLockedOverlayElement.hidden = !showOverlay;
+    if (boardLockedOverlayTitleElement) {
+      boardLockedOverlayTitleElement.textContent = showOverlay ? title : '';
+    }
+  }
+
+  // While locked in a multiplayer match, surface the room code prominently
+  // in the overlay (replacing the former standalone room-code card).
+  if (boardLockedOverlayRoomCodeElement && boardLockedOverlayCodeElement && boardLockedOverlayLabelElement) {
+    const showRoomCodeInOverlay = showOverlay && Boolean(matchSession);
+
+    boardLockedOverlayRoomCodeElement.hidden = !showRoomCodeInOverlay;
+
+    if (showRoomCodeInOverlay) {
+      const isHost = matchSession.role === 'host';
+      boardLockedOverlayRoomCodeElement.dataset.role = isHost ? 'host' : 'guest';
+      boardLockedOverlayLabelElement.textContent = isHost ? 'Host room code' : 'Race room code';
+      boardLockedOverlayCodeElement.textContent = matchSession.match.roomCode;
+    } else {
+      delete boardLockedOverlayRoomCodeElement.dataset.role;
+      boardLockedOverlayLabelElement.textContent = '';
+      boardLockedOverlayCodeElement.textContent = '';
+    }
+  }
 }
 
 function updateBattleStrip() {
@@ -506,6 +526,10 @@ function updateBattleStrip() {
   battleStripElement.hidden = !multiplayerActive;
 
   if (!multiplayerActive) {
+    if (battleRoomCodeElement) {
+      battleRoomCodeElement.hidden = true;
+      battleRoomCodeElement.textContent = '';
+    }
     return;
   }
 
@@ -519,6 +543,17 @@ function updateBattleStrip() {
   const delta = localCount - opponentCount;
 
   battleTitleElement.textContent = matchSession.match.status === 'finished' ? 'Battle result' : 'Head-to-head race';
+
+  // Show the room code inline in the header while the race is running,
+  // so the host can still share it without opening the modal. When the
+  // board is locked (waiting/countdown/finished) the overlay already
+  // surfaces the code prominently, so hide the inline one to avoid
+  // duplication.
+  if (battleRoomCodeElement) {
+    const showInlineRoomCode = matchSession.match.status === 'active';
+    battleRoomCodeElement.hidden = !showInlineRoomCode;
+    battleRoomCodeElement.textContent = showInlineRoomCode ? matchSession.match.roomCode : '';
+  }
   battleYouCountElement.textContent = `${localCount}/${totalCells}`;
   battleOpponentCountElement.textContent = `${opponentCount}/${totalCells}`;
   battleYouFillElement.style.width = `${localPercent}%`;
@@ -1087,6 +1122,33 @@ document.addEventListener('keydown', (event) => {
 boardElement.addEventListener('dblclick', (event) => {
   event.preventDefault();
 });
+
+if (openMenuButton && optionsModalElement) {
+  openMenuButton.addEventListener('click', () => {
+    optionsModalElement.showModal();
+  });
+}
+
+if (closeMenuButton && optionsModalElement) {
+  closeMenuButton.addEventListener('click', () => {
+    optionsModalElement.close();
+  });
+}
+
+if (optionsModalElement) {
+  optionsModalElement.addEventListener('click', (event) => {
+    const modalRect = optionsModalElement.getBoundingClientRect();
+    const clickedOutside =
+      event.clientX < modalRect.left ||
+      event.clientX > modalRect.right ||
+      event.clientY < modalRect.top ||
+      event.clientY > modalRect.bottom;
+
+    if (clickedOutside) {
+      optionsModalElement.close();
+    }
+  });
+}
 
 newGameButton.addEventListener('click', (event) => {
   event.preventDefault();

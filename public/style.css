@@ -14,17 +14,6 @@
   --cell-given-overlay: rgba(255, 255, 255, 0.16);
   --cell-invalid-overlay: rgba(255, 226, 226, 0.9);
   --cell-complete-overlay: rgba(230, 248, 234, 0.72);
-  --board-message-background: #f5f8fc;
-  --board-message-border: #d7e0ea;
-  --board-message-title: #102030;
-  --board-message-detail: #4f6173;
-  --board-message-warning-background: #fff2ec;
-  --board-message-warning-border: #f2cbc0;
-  --board-message-warning-title: #8f2e1f;
-  --board-message-success-background: #edf8f0;
-  --board-message-success-border: #cfe5d5;
-  --board-message-success-title: #1f6b3d;
-  --board-message-locked-background: #eef2f6;
   --board-message-locked-border: #cfd8e1;
   --board-message-locked-title: #314255;
   --board-lock-overlay: rgba(230, 235, 241, 0.48);
@@ -35,13 +24,8 @@
   --battle-opponent: #dd5b52;
   --battle-track: #e5ecf3;
   --battle-flash: rgba(221, 91, 82, 0.22);
-  --room-code-background: #eef4ff;
-  --room-code-border: #cfdbef;
   --room-code-title: #274e8b;
   --room-code-value: #102030;
-  --room-code-detail: #4f6173;
-  --room-code-host-background: #e8f0ff;
-  --room-code-host-border: #bed0ee;
 }
 
 * {
@@ -51,31 +35,24 @@
 body {
   margin: 0;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .layout {
-  height: 100dvh;
+  min-height: 100dvh;
   display: grid;
-  gap: clamp(1rem, 3vw, 2rem);
-  grid-template-columns: minmax(260px, 340px) 1fr;
+  place-items: center;
   padding: clamp(1rem, 3vw, 2rem);
-  overflow: hidden;
 }
 
-.panel,
 .board-panel {
   width: 100%;
-  min-width: 0;
-  min-height: 0;
+  max-width: min(1000px, 100%);
+  min-height: calc(100dvh - (2 * clamp(1rem, 3vw, 2rem)));
   background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 16px 40px rgba(19, 35, 58, 0.1);
   padding: 1.5rem;
-}
-
-.panel {
-  overflow: auto;
 }
 
 .intro,
@@ -228,118 +205,62 @@ button:not(.cell):disabled {
 }
 
 .board-panel {
+  position: relative;
   display: grid;
   gap: 1.25rem;
   align-content: start;
   justify-items: center;
-  overflow: hidden;
 }
 
-.board-room-code {
-  width: 100%;
-  max-width: var(--board-max-width);
+.menu-trigger {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 3;
+  width: 2.8rem;
+  height: 2.8rem;
+  padding: 0;
   display: grid;
-  gap: 0.3rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--room-code-border);
+  place-items: center;
+  font-size: 1.35rem;
+  border-radius: 50%;
+}
+
+.options-modal {
+  width: min(520px, calc(100vw - 2rem));
+  max-height: min(90dvh, 860px);
+  border: 0;
   border-radius: 18px;
-  background: var(--room-code-background);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  padding: 0;
+  box-shadow: 0 24px 50px rgba(19, 35, 58, 0.28);
 }
 
-.board-room-code[data-role="host"] {
-  border-color: var(--room-code-host-border);
-  background: var(--room-code-host-background);
+.options-modal::backdrop {
+  background: rgba(10, 18, 31, 0.55);
 }
 
-.board-room-code-label,
-.board-room-code-value,
-.board-room-code-detail {
+.options-modal-content {
+  max-height: inherit;
+  overflow: auto;
+  padding: 1.2rem;
+}
+
+.options-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.options-modal-header h1 {
   margin: 0;
 }
 
-.board-room-code-label {
-  color: var(--room-code-title);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.board-room-code-value {
-  color: var(--room-code-value);
-  font-size: clamp(1.75rem, 5vw, 2.7rem);
-  font-weight: 800;
-  letter-spacing: 0.3em;
-  text-indent: 0.3em;
-}
-
-.board-room-code-detail {
-  color: var(--room-code-detail);
-  line-height: 1.5;
-}
-
-.board-message {
-  width: 100%;
-  max-width: var(--board-max-width);
-  min-height: 6.2rem;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  align-content: start;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--board-message-border);
-  border-radius: 18px;
-  background: var(--board-message-background);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-.board-message[data-tone="warning"] {
-  background: var(--board-message-warning-background);
-  border-color: var(--board-message-warning-border);
-}
-
-.board-message[data-tone="success"] {
-  background: var(--board-message-success-background);
-  border-color: var(--board-message-success-border);
-}
-
-.board-message[data-tone="locked"] {
-  background: var(--board-message-locked-background);
-  border-color: var(--board-message-locked-border);
-}
-
-.board-message-title,
-.board-message-detail {
-  margin: 0;
-}
-
-.board-message-title {
-  color: var(--board-message-title);
-  font-size: clamp(1.1rem, 2.4vmin, 1.45rem);
-  font-weight: 700;
-  line-height: 1.25;
-  min-height: 1.4em;
-}
-
-.board-message[data-tone="warning"] .board-message-title {
-  color: var(--board-message-warning-title);
-}
-
-.board-message[data-tone="success"] .board-message-title {
-  color: var(--board-message-success-title);
-}
-
-.board-message[data-tone="locked"] .board-message-title {
-  color: var(--board-message-locked-title);
-}
-
-.board-message-detail {
-  margin-top: 0.35rem;
-  color: var(--board-message-detail);
-  line-height: 1.4;
-  min-height: 2.8em;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.menu-close {
+  min-width: 2.3rem;
+  min-height: 2.3rem;
+  padding: 0;
+  border-radius: 50%;
 }
 
 .battle-strip {
@@ -371,10 +292,36 @@ button:not(.cell):disabled {
   margin: 0;
 }
 
+.battle-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 .battle-title {
   color: #102030;
   font-size: clamp(1rem, 2.1vmin, 1.2rem);
   font-weight: 700;
+}
+
+.battle-room-code {
+  color: var(--room-code-title);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.battle-room-code[hidden] {
+  display: none;
+}
+
+.battle-room-code::before {
+  content: '· ';
+  opacity: 0.55;
 }
 
 .battle-delta {
@@ -481,6 +428,72 @@ button:not(.cell):disabled {
   }
 }
 
+.board-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: var(--board-max-width);
+  display: grid;
+}
+
+.board-locked-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: rgba(238, 242, 246, 0.82);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
+  text-align: center;
+}
+
+.board-locked-overlay[hidden] {
+  display: none;
+}
+
+.board-locked-overlay-room-code {
+  display: grid;
+  gap: 0.15rem;
+  justify-items: center;
+}
+
+.board-locked-overlay-room-code[hidden] {
+  display: none;
+}
+
+.board-locked-overlay-label {
+  margin: 0;
+  color: var(--room-code-title);
+  font-size: clamp(0.7rem, 1.8vmin, 0.82rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.board-locked-overlay-code {
+  margin: 0;
+  color: var(--room-code-value);
+  font-size: clamp(1.6rem, 6vmin, 2.6rem);
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  line-height: 1;
+}
+
+.board-locked-overlay-title {
+  margin: 0;
+  color: var(--board-message-locked-title);
+  font-size: clamp(0.95rem, 2.5vmin, 1.25rem);
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+
 .board {
   display: grid;
   gap: 0;
@@ -577,39 +590,28 @@ button:not(.cell):disabled {
   }
 
   .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 100dvh;
     padding: 0.6rem;
-    gap: 0.6rem;
   }
 
-  .panel,
   .board-panel {
     border-radius: 16px;
     padding: 0.85rem;
     box-shadow: 0 10px 28px rgba(19, 35, 58, 0.12);
+    min-height: calc(100dvh - 1.2rem);
   }
 
   .board-panel {
-    order: 1;
     gap: 0.6rem;
     align-content: start;
     justify-items: center;
   }
 
-  .panel {
-    order: 2;
-    overflow: auto;
-    padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
-  }
-
-  .panel h1 {
-    margin: 0;
-    font-size: 1.05rem;
-  }
-
-  .intro {
-    display: none;
+  .menu-trigger {
+    top: 0.65rem;
+    left: 0.65rem;
+    width: 2.5rem;
+    height: 2.5rem;
   }
 
   .controls {
@@ -631,30 +633,25 @@ button:not(.cell):disabled {
     width: 100%;
   }
 
-  .board-room-code,
-  .board-message,
   .battle-strip {
     padding: 0.7rem 0.8rem;
     border-radius: 14px;
   }
 
-  .board-room-code-value {
-    font-size: clamp(1.3rem, 6.8vw, 1.8rem);
+  .board-locked-overlay-code {
+    font-size: clamp(1.3rem, 8vw, 2rem);
     letter-spacing: 0.22em;
     text-indent: 0.22em;
   }
 
-  .board-message {
-    min-height: 5rem;
+  .board-locked-overlay-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
   }
 
-  .board-message-title {
-    font-size: 0.98rem;
-  }
-
-  .board-message-detail {
-    font-size: 0.85rem;
-    min-height: 2.6em;
+  .battle-room-code {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
   }
 
   .battle-title {
@@ -685,6 +682,20 @@ button:not(.cell):disabled {
   .hosted-game-card {
     padding: 0.7rem 0.75rem;
     gap: 0.45rem;
+  }
+
+  .options-modal {
+    width: calc(100vw - 1.2rem);
+    max-height: calc(100dvh - 1.2rem);
+    border-radius: 14px;
+  }
+
+  .options-modal-content {
+    padding: 0.85rem;
+  }
+
+  .options-modal-header h1 {
+    font-size: 1.05rem;
   }
 
   button:not(.cell),
