@@ -44,6 +44,7 @@ let discoveredMatches = [];
 let opponentGainAnimationTimeoutId = null;
 let renderFrameRequested = false;
 let lanDiscoveryEnabled = true;
+const LONG_PRESS_DURATION_MS = 420;
 
 function isMultiplayerMode() {
   return matchSession !== null;
@@ -711,8 +712,48 @@ function renderBoard() {
       cell.classList.add('locked');
     }
 
-    cell.addEventListener('click', () => {
+    let longPressTimeoutId = null;
+    let suppressClick = false;
+
+    const clearLongPressTimeout = () => {
+      if (longPressTimeoutId !== null) {
+        clearTimeout(longPressTimeoutId);
+        longPressTimeoutId = null;
+      }
+    };
+
+    cell.addEventListener('pointerdown', (event) => {
+      if (!canEdit || event.button !== 0) {
+        return;
+      }
+
+      suppressClick = false;
+      clearLongPressTimeout();
+      longPressTimeoutId = window.setTimeout(() => {
+        longPressTimeoutId = null;
+
+        if (!canEdit || values[index] === null) {
+          return;
+        }
+
+        selectedIndex = index;
+        setSelectedCellValue(null);
+        suppressClick = true;
+      }, LONG_PRESS_DURATION_MS);
+    });
+
+    cell.addEventListener('pointerup', clearLongPressTimeout);
+    cell.addEventListener('pointercancel', clearLongPressTimeout);
+    cell.addEventListener('pointerleave', clearLongPressTimeout);
+
+    cell.addEventListener('click', (event) => {
       if (!canEdit) {
+        return;
+      }
+
+      if (suppressClick) {
+        suppressClick = false;
+        event.preventDefault();
         return;
       }
 
@@ -1041,6 +1082,10 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Backspace' || event.key === 'Delete' || event.key === '0') {
     setSelectedCellValue(null);
   }
+});
+
+boardElement.addEventListener('dblclick', (event) => {
+  event.preventDefault();
 });
 
 newGameButton.addEventListener('click', (event) => {

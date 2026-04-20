@@ -50,30 +50,42 @@
 
 body {
   margin: 0;
+  min-height: 100dvh;
+  overflow: hidden;
 }
 
 .layout {
-  min-height: 100vh;
+  height: 100dvh;
   display: grid;
   gap: clamp(1rem, 3vw, 2rem);
   grid-template-columns: minmax(260px, 340px) 1fr;
   padding: clamp(1rem, 3vw, 2rem);
+  overflow: hidden;
 }
 
 .panel,
 .board-panel {
   width: 100%;
   min-width: 0;
+  min-height: 0;
   background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 16px 40px rgba(19, 35, 58, 0.1);
   padding: 1.5rem;
 }
 
+.panel {
+  overflow: auto;
+}
+
 .intro,
 .status {
   color: #4f6173;
   line-height: 1.5;
+}
+
+.status {
+  min-height: 1.5rem;
 }
 
 .controls {
@@ -132,6 +144,7 @@ body {
 
 .match-status {
   margin: 0.35rem 0;
+  min-height: 1.5rem;
 }
 
 .hosted-games {
@@ -202,6 +215,7 @@ button:not(.cell) {
   font: inherit;
   max-width: 100%;
   padding: 0.75rem 1.1rem;
+  touch-action: manipulation;
 }
 
 button:not(.cell):hover {
@@ -218,6 +232,7 @@ button:not(.cell):disabled {
   gap: 1.25rem;
   align-content: start;
   justify-items: center;
+  overflow: hidden;
 }
 
 .board-room-code {
@@ -267,9 +282,10 @@ button:not(.cell):disabled {
 .board-message {
   width: 100%;
   max-width: var(--board-max-width);
-  min-height: 5.75rem;
+  min-height: 6.2rem;
   display: grid;
-  align-content: center;
+  grid-template-rows: auto 1fr;
+  align-content: start;
   padding: 1rem 1.25rem;
   border: 1px solid var(--board-message-border);
   border-radius: 18px;
@@ -301,6 +317,8 @@ button:not(.cell):disabled {
   color: var(--board-message-title);
   font-size: clamp(1.1rem, 2.4vmin, 1.45rem);
   font-weight: 700;
+  line-height: 1.25;
+  min-height: 1.4em;
 }
 
 .board-message[data-tone="warning"] .board-message-title {
@@ -318,7 +336,10 @@ button:not(.cell):disabled {
 .board-message-detail {
   margin-top: 0.35rem;
   color: var(--board-message-detail);
-  line-height: 1.5;
+  line-height: 1.4;
+  min-height: 2.8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .battle-strip {
@@ -339,6 +360,7 @@ button:not(.cell):disabled {
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
+  min-height: 2rem;
 }
 
 .battle-title,
@@ -362,6 +384,7 @@ button:not(.cell):disabled {
   color: #244f9d;
   font-size: 0.9rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .battle-lanes {
@@ -464,6 +487,7 @@ button:not(.cell):disabled {
   width: 100%;
   max-width: var(--board-max-width);
   transition: box-shadow 160ms ease;
+  touch-action: manipulation;
 }
 
 .board.locked {
@@ -493,6 +517,8 @@ button:not(.cell):disabled {
   font-weight: 700;
   min-width: 0;
   transition: background-color 160ms ease, box-shadow 160ms ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .cell:hover {
@@ -546,17 +572,49 @@ button:not(.cell):disabled {
 }
 
 @media (max-width: 860px) {
+  :root {
+    --board-max-width: min(94vw, 56dvh);
+  }
+
   .layout {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    padding: 0.6rem;
+    gap: 0.6rem;
   }
 
   .panel,
   .board-panel {
-    padding: 1rem;
+    border-radius: 16px;
+    padding: 0.85rem;
+    box-shadow: 0 10px 28px rgba(19, 35, 58, 0.12);
+  }
+
+  .board-panel {
+    order: 1;
+    gap: 0.6rem;
+    align-content: start;
+    justify-items: center;
+  }
+
+  .panel {
+    order: 2;
+    overflow: auto;
+    padding-bottom: max(0.85rem, env(safe-area-inset-bottom));
+  }
+
+  .panel h1 {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  .intro {
+    display: none;
   }
 
   .controls {
-    margin: 1rem 0;
+    margin: 0.55rem 0;
+    gap: 0.5rem;
   }
 
   .controls > button:not(.cell),
@@ -576,18 +634,62 @@ button:not(.cell):disabled {
   .board-room-code,
   .board-message,
   .battle-strip {
-    padding: 1rem;
+    padding: 0.7rem 0.8rem;
+    border-radius: 14px;
   }
 
   .board-room-code-value {
-    font-size: clamp(1.6rem, 9vw, 2.3rem);
+    font-size: clamp(1.3rem, 6.8vw, 1.8rem);
     letter-spacing: 0.22em;
     text-indent: 0.22em;
+  }
+
+  .board-message {
+    min-height: 5rem;
+  }
+
+  .board-message-title {
+    font-size: 0.98rem;
+  }
+
+  .board-message-detail {
+    font-size: 0.85rem;
+    min-height: 2.6em;
+  }
+
+  .battle-title {
+    font-size: 0.92rem;
+  }
+
+  .battle-delta,
+  .battle-lane-label,
+  .battle-lane-count {
+    font-size: 0.8rem;
   }
 
   .battle-strip-header,
   .battle-lane-label-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .hosted-games {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+  }
+
+  .hosted-games-list {
+    gap: 0.5rem;
+  }
+
+  .hosted-game-card {
+    padding: 0.7rem 0.75rem;
+    gap: 0.45rem;
+  }
+
+  button:not(.cell),
+  #join-code {
+    padding: 0.62rem 0.86rem;
+    min-height: 2.4rem;
   }
 }
