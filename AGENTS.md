@@ -116,11 +116,42 @@ Changes:
 
 ---
 
+### Persistent room rematch + menu overlap fix (current session)
+
+**Goal**: Let the host start another multiplayer game in the same room after a race finishes, instead of forcing the room to end. Also stop the hamburger menu button from overlapping the board area.
+
+Changes:
+
+#### `public/index.html`
+- Added a new hidden-by-default `#next-race` button to the multiplayer session controls in the options modal.
+
+#### `public/app.js`
+- Added a DOM ref and click handler for `#next-race`.
+- Changed multiplayer controls so any active match session keeps solo/host/join controls locked; finished matches are no longer treated as disposable from the client.
+- Added `startNextRace()` for the host, calling a new `/api/matches/:id/rematch` endpoint.
+- Extended match event handling with `handleMatchReset()` and updated `handleMatchState()` to accept an optional puzzle payload.
+- Added puzzle-revision-aware client syncing so reconnecting clients can detect a rematch and load the fresh puzzle when the room state changes.
+- Updated finished-state modal copy so hosts are prompted to start the next race or close the room, while guests are told to wait for the host.
+
+#### `server.js`
+- Added `puzzleRevision` to match state.
+- Added `assignPuzzleToMatch()` and `resetMatchForRematch()` helpers to generate and install a fresh puzzle while keeping the same room alive.
+- Added a host-only `POST /api/matches/:roomCode/rematch` endpoint.
+- Reused `startCountdown()` for both join and rematch flows.
+- Updated the initial SSE `match_state` event to include the current puzzle so reconnecting clients can resync after a rematch.
+- Broadcasts `match_reset` with the new puzzle + updated match state whenever the host starts the next race.
+
+#### `public/style.css`
+- Increased `.board-panel` top padding on desktop and mobile so the absolutely positioned hamburger menu no longer covers the battle strip, board, or locked overlay text.
+
+---
+
 ## Current State
 
 - The board panel is compact on mobile: hamburger menu → options modal for controls, always-visible battle strip.
 - Locked states (loading, waiting for opponent, countdown, game over) overlay the board directly. When a match session is active, the overlay also surfaces the room code prominently (big lettering) above the locked title.
 - Once the race is active (board unlocked), the room code is shown inline next to the "Head-to-head race" title in the battle-strip header, in small tracked font.
+- When a multiplayer race finishes, the host can start the next race in the same room with a fresh puzzle and the same room code; connected guests are carried into the new countdown automatically.
 - Closing a hosted race or leaving as a guest immediately clears both room-code surfaces; the modal returns to "Solo mode".
 - There is no standalone text-status box above the board anymore; locked messaging lives on the board overlay, and multiplayer progress/status lives in the battle strip.
 
@@ -130,5 +161,6 @@ Changes:
 
 - The overlay currently shows only the locked `title` text (plus room code). The former `detail` text is no longer surfaced in the board area.
 - When the local player wins a race (`tone === 'success'`), the overlay is hidden and the inline code is also hidden (since `status === 'finished'`). The race code is still visible in the options modal. If surfacing it inline post-victory is desired, extend the `showInlineRoomCode` check in `updateBattleStrip()`.
+- The room rematch flow currently relies on the host to start the next race; guests do not explicitly confirm rematches.
 - Consider animating the overlay fade-in/out to match the existing `160ms ease` transition style used elsewhere.
 - The battle strip is always visible during a multiplayer match; consider hiding it during countdown/waiting when there is no meaningful progress to display.

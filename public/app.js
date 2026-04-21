@@ -24,6 +24,7 @@ const newGameButton = document.querySelector('#new-game');
 const resetButton = document.querySelector('#reset-game');
 const hostRaceButton = document.querySelector('#host-race');
 const joinRaceButton = document.querySelector('#join-race');
+const nextRaceButton = document.querySelector('#next-race');
 const leaveRaceButton = document.querySelector('#leave-race');
 const closeRaceButton = document.querySelector('#close-race');
 const joinCodeInput = document.querySelector('#join-code');
@@ -50,22 +51,6 @@ const LONG_PRESS_DURATION_MS = 420;
 
 function isMultiplayerMode() {
   return matchSession !== null;
-}
-
-function canReplaceFinishedMatch() {
-  return matchSession !== null && matchSession.match.status === 'finished';
-}
-
-function leaveFinishedMatch() {
-  if (!canReplaceFinishedMatch()) {
-    return;
-  }
-
-  closeEventSource();
-  clearCountdownRefresh();
-  matchSession = null;
-  isSubmittingFinish = false;
-  lastReportedFilledCount = null;
 }
 
 function getEditableBoardState() {
@@ -190,7 +175,7 @@ function renderDiscoveredMatches() {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = 'Join';
-    button.disabled = isLoadingPuzzle || (isMultiplayerMode() && !canReplaceFinishedMatch());
+    button.disabled = isLoadingPuzzle || isMultiplayerMode();
     button.addEventListener('click', () => {
       void joinDiscoveredMatch(match);
     });
@@ -227,10 +212,11 @@ async function refreshDiscoveredMatches() {
 }
 
 function updateControlStates() {
-  const multiplayerLocked = isMultiplayerMode() && !canReplaceFinishedMatch();
+  const multiplayerLocked = isMultiplayerMode();
   const boardLocked = !getEditableBoardState();
   const isGuest = matchSession?.role === 'guest';
   const isHost = matchSession?.role === 'host';
+  const finishedMatch = matchSession?.match.status === 'finished';
 
   newGameButton.disabled = isLoadingPuzzle || multiplayerLocked;
   resetButton.disabled =
@@ -241,8 +227,10 @@ function updateControlStates() {
   hostRaceButton.disabled = isLoadingPuzzle || multiplayerLocked;
   joinRaceButton.disabled = isLoadingPuzzle || multiplayerLocked || joinCodeInput.value.trim().length !== 4;
   joinCodeInput.disabled = isLoadingPuzzle || multiplayerLocked;
+  nextRaceButton.hidden = !(isHost && finishedMatch);
   leaveRaceButton.hidden = !isGuest;
   closeRaceButton.hidden = !isHost;
+  nextRaceButton.disabled = isLoadingPuzzle || !(isHost && finishedMatch);
   leaveRaceButton.disabled = isLoadingPuzzle || !isGuest;
   closeRaceButton.disabled = isLoadingPuzzle || !isHost;
   renderDiscoveredMatches();
@@ -393,10 +381,18 @@ function updateMatchStatus() {
   }
 
   if (matchSession.match.status === 'finished') {
+    if (matchSession.role === 'host') {
+      matchStatusElement.textContent =
+        matchSession.match.winnerPlayerId === matchSession.playerId
+          ? 'You won the race. Start the next race when ready or close the room.'
+          : 'You lost the race. Start the next race when ready or close the room.';
+      return;
+    }
+
     matchStatusElement.textContent =
       matchSession.match.winnerPlayerId === matchSession.playerId
-        ? 'You won the race. The match is over for both players.'
-        : 'You lost the race. The other player finished first.';
+        ? 'You won the race. Waiting for the host to start the next race or close the room.'
+        : 'You lost the race. Waiting for the host to start the next race or close the room.';
     return;
   }
 
@@ -862,15 +858,21 @@ function applyPuzzle(nextPuzzle) {
   renderBoard();
 }
 
-function handleMatchState(match) {
+function handleMatchState(match, nextPuzzle = null) {
   if (!matchSession) {
     return;
   }
 
   const previousStatus = matchSession.match.status;
+  const previousPuzzleRevision = matchSession.match.puzzleRevision ?? null;
   const previousOpponentCount = getOpponentPlayerState()?.filledCount ?? 0;
   matchSession.match = match;
   const nextOpponentCount = getOpponentPlayerState()?.filledCount ?? 0;
+
+  if (nextPuzzle && match.puzzleRevision !== previousPuzzleRevision) {
+    applyPuzzle(nextPuzzle);
+    return;
+  }
 
   if (matchSession.role === 'host' && previousStatus !== 'waiting' && match.status === 'waiting' && puzzle) {
     values = [...puzzle.givens];
@@ -885,6 +887,14 @@ function handleMatchState(match) {
   renderBoard();
 }
 
+function handleMatchReset(payload) {
+  if (!matchSession || !payload?.match || !payload?.puzzle) {
+    return;
+  }
+
+  handleMatchState(payload.match, payload.puzzle);
+}
+
 function openMatchEventStream() {
   closeEventSource();
   eventSource = new EventSource(
@@ -896,7 +906,12 @@ function openMatchEventStream() {
       const payload = JSON.parse(event.data);
 
       if (payload.type === 'match_state') {
-        handleMatchState(payload.match);
+        handleMatchState(payload.match, payload.puzzle ?? null);
+        return;
+      }
+
+      if (payload.type === 'match_reset') {
+        handleMatchReset(payload);
         return;
       }
 
@@ -917,8 +932,6 @@ async function loadPuzzle() {
   if (isLoadingPuzzle) {
     return;
   }
-
-  leaveFinishedMatch();
 
   if (isMultiplayerMode()) {
     return;
@@ -960,8 +973,6 @@ async function hostRace() {
     return;
   }
 
-  leaveFinishedMatch();
-
   if (isMultiplayerMode()) {
     return;
   }
@@ -1002,8 +1013,6 @@ async function joinRaceByCode(roomCode) {
   if (normalizedRoomCode.length !== 4 || isLoadingPuzzle) {
     return;
   }
-
-  leaveFinishedMatch();
 
   if (isMultiplayerMode()) {
     return;
@@ -1104,6 +1113,29 @@ async function closeHostedRace() {
   }
 }
 
+async function startNextRace() {
+  if (!matchSession || matchSession.role !== 'host' || matchSession.match.status !== 'finished' || isLoadingPuzzle) {
+    return;
+  }
+
+  isLoadingPuzzle = true;
+  updateControlStates();
+  matchStatusElement.textContent = 'Preparing the next race…';
+
+  try {
+    const payload = await postJson(`/api/matches/${matchSession.matchId}/rematch`, {
+      playerId: matchSession.playerId,
+    });
+    handleMatchReset(payload);
+  } catch (error) {
+    console.error(error);
+    matchStatusElement.textContent = 'Failed to start the next race.';
+  } finally {
+    isLoadingPuzzle = false;
+    updateControlStates();
+  }
+}
+
 document.addEventListener('keydown', (event) => {
   if (!puzzle || !getEditableBoardState()) {
     return;
@@ -1171,6 +1203,10 @@ hostRaceButton.addEventListener('click', () => {
 
 joinRaceButton.addEventListener('click', () => {
   void joinRace();
+});
+
+nextRaceButton.addEventListener('click', () => {
+  void startNextRace();
 });
 
 leaveRaceButton.addEventListener('click', () => {

@@ -52,7 +52,7 @@ body {
   background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 16px 40px rgba(19, 35, 58, 0.1);
-  padding: 1.5rem;
+  padding: 4.5rem 1.5rem 1.5rem;
 }
 
 .intro,
@@ -596,7 +596,7 @@ button:not(.cell):disabled {
 
   .board-panel {
     border-radius: 16px;
-    padding: 0.85rem;
+    padding: 3.9rem 0.85rem 0.85rem;
     box-shadow: 0 10px 28px rgba(19, 35, 58, 0.12);
     min-height: calc(100dvh - 1.2rem);
   }

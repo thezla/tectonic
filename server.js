@@ -134,6 +134,7 @@ function buildMatchState(match) {
   return {
     matchId: match.id,
     roomCode: match.id,
+    puzzleRevision: match.puzzleRevision,
     status: match.status,
     winnerPlayerId: match.winnerPlayerId,
     startsAt: match.startsAt,
@@ -199,6 +200,59 @@ function resetHostToWaiting(match) {
   }
 }
 
+function assignPuzzleToMatch(match, puzzle, solution) {
+  match.puzzle = puzzle;
+  match.solution = solution;
+  match.givenCount = puzzle.givens.filter((value) => value !== null).length;
+  match.puzzleRevision = (match.puzzleRevision ?? 0) + 1;
+
+  if (match.players.host) {
+    match.players.host.filledCount = match.givenCount;
+  }
+
+  if (match.players.guest) {
+    match.players.guest.filledCount = match.givenCount;
+  }
+}
+
+function startCountdown(match) {
+  if (match.startTimer) {
+    clearTimeout(match.startTimer);
+  }
+
+  match.status = 'countdown';
+  match.winnerPlayerId = null;
+  match.startsAt = Date.now() + MATCH_START_DELAY_MS;
+  match.startTimer = setTimeout(() => {
+    if (!matches.has(match.id) || match.status !== 'countdown') {
+      return;
+    }
+
+    match.status = 'active';
+    match.startsAt = null;
+    match.startTimer = null;
+    broadcastMatchState(match);
+  }, MATCH_START_DELAY_MS);
+}
+
+function resetMatchForRematch(match) {
+  const { puzzle, solution } = createPuzzleWithSolution();
+  assignPuzzleToMatch(match, puzzle, solution);
+  match.winnerPlayerId = null;
+
+  if (match.players.guest) {
+    startCountdown(match);
+  } else {
+    if (match.startTimer) {
+      clearTimeout(match.startTimer);
+      match.startTimer = null;
+    }
+
+    match.status = 'waiting';
+    match.startsAt = null;
+  }
+}
+
 function closeMatch(match, reason) {
   if (match.startTimer) {
     clearTimeout(match.startTimer);
@@ -222,27 +276,29 @@ function closeMatch(match, reason) {
 function createMatch() {
   const { puzzle, solution } = createPuzzleWithSolution();
   const playerId = createId(8);
-  const givenCount = puzzle.givens.filter((value) => value !== null).length;
   const match = {
     id: createUniqueMatchId(),
-    puzzle,
-    solution,
-    givenCount,
-      status: 'waiting',
-      winnerPlayerId: null,
-      startsAt: null,
-      startTimer: null,
-      subscribers: new Set(),
+    puzzle: null,
+    solution: null,
+    givenCount: 0,
+    puzzleRevision: 0,
+    status: 'waiting',
+    winnerPlayerId: null,
+    startsAt: null,
+    startTimer: null,
+    subscribers: new Set(),
     players: {
       host: {
         id: playerId,
         role: 'host',
-        filledCount: givenCount,
+        filledCount: 0,
         connected: false,
       },
       guest: null,
     },
   };
+
+  assignPuzzleToMatch(match, puzzle, solution);
 
   matches.set(match.id, match);
 
@@ -271,6 +327,7 @@ function attachEventStream(request, response, match, playerId) {
   sendSseEvent(response, {
     type: 'match_state',
     match: buildMatchState(match),
+    puzzle: match.puzzle,
   });
   broadcastMatchState(match);
 
@@ -453,6 +510,7 @@ const server = http.createServer(async (request, response) => {
   const joinMatch = requestUrl.pathname.match(/^\/api\/matches\/([A-Z0-9]+)\/join$/);
   const leaveMatch = requestUrl.pathname.match(/^\/api\/matches\/([A-Z0-9]+)\/leave$/);
   const closeMatchRequest = requestUrl.pathname.match(/^\/api\/matches\/([A-Z0-9]+)\/close$/);
+  const rematchRequest = requestUrl.pathname.match(/^\/api\/matches\/([A-Z0-9]+)\/rematch$/);
   const progressMatch = requestUrl.pathname.match(/^\/api\/matches\/([A-Z0-9]+)\/progress$/);
   const finishMatch = requestUrl.pathname.match(/^\/api\/matches\/([A-Z0-9]+)\/finish$/);
 
@@ -500,18 +558,7 @@ const server = http.createServer(async (request, response) => {
       filledCount: match.givenCount,
       connected: false,
     };
-    match.status = 'countdown';
-    match.startsAt = Date.now() + MATCH_START_DELAY_MS;
-    match.startTimer = setTimeout(() => {
-      if (!matches.has(match.id) || match.status !== 'countdown') {
-        return;
-      }
-
-      match.status = 'active';
-      match.startsAt = null;
-      match.startTimer = null;
-      broadcastMatchState(match);
-    }, MATCH_START_DELAY_MS);
+    startCountdown(match);
     sendMatchResponse(response, match, playerId, 'guest');
     broadcastMatchState(match);
     return;
@@ -574,6 +621,51 @@ const server = http.createServer(async (request, response) => {
 
       closeMatch(match, 'host_closed');
       sendJson(response, 200, { closed: true });
+    } catch (error) {
+      console.error(error);
+      sendText(response, 400, 'Invalid JSON body');
+    }
+
+    return;
+  }
+
+  if (request.method === 'POST' && rematchRequest) {
+    const match = matches.get(rematchRequest[1]);
+
+    if (!match) {
+      sendText(response, 404, 'Match not found');
+      return;
+    }
+
+    try {
+      const body = await readJsonBody(request);
+      const player = getPlayerRecord(match, body.playerId);
+
+      if (!player) {
+        sendText(response, 403, 'Unknown player');
+        return;
+      }
+
+      if (player.role !== 'host') {
+        sendText(response, 403, 'Only the host can start the next race');
+        return;
+      }
+
+      if (match.status !== 'finished') {
+        sendText(response, 409, 'Match is not finished');
+        return;
+      }
+
+      resetMatchForRematch(match);
+      broadcastEvent(match, {
+        type: 'match_reset',
+        puzzle: match.puzzle,
+        match: buildMatchState(match),
+      });
+      sendJson(response, 200, {
+        puzzle: match.puzzle,
+        match: buildMatchState(match),
+      });
     } catch (error) {
       console.error(error);
       sendText(response, 400, 'Invalid JSON body');
