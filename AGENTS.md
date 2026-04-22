@@ -146,6 +146,27 @@ Changes:
 
 ---
 
+### Modal auto-close + 5s countdown + split host/join rows (current session)
+
+**Goal**: Make it faster to get back to the board after starting or joining a race, lengthen the pre-race countdown, and separate the host/join controls into clearer rows in the modal.
+
+Changes:
+
+#### `public/app.js`
+- Added `closeOptionsModal()`.
+- Updated `hostRace()` to close the options modal after a successful room creation.
+- Updated `joinRaceByCode()` to close the options modal after a successful join.
+
+#### `server.js`
+- Increased `MATCH_START_DELAY_MS` from `3000` to `5000`, affecting both initial joins and rematches.
+
+#### `public/style.css`
+- Changed `.multiplayer-controls` to a vertical layout so `Host race` sits on its own row.
+- Made the direct host button full-width within that stacked layout.
+- Left `.join-controls` as the separate row beneath it, with the input and join button remaining grouped together.
+
+---
+
 ## Current State
 
 - The board panel is compact on mobile: hamburger menu → options modal for controls, always-visible battle strip.
@@ -153,6 +174,8 @@ Changes:
 - Once the race is active (board unlocked), the room code is shown inline next to the "Head-to-head race" title in the battle-strip header, in small tracked font.
 - When a multiplayer race finishes, the host can start the next race in the same room with a fresh puzzle and the same room code; connected guests are carried into the new countdown automatically.
 - Closing a hosted race or leaving as a guest immediately clears both room-code surfaces; the modal returns to "Solo mode".
+- Successfully hosting or joining a race automatically closes the modal so the player lands back on the board immediately.
+- Multiplayer countdowns now last 5 seconds before the board unlocks.
 - There is no standalone text-status box above the board anymore; locked messaging lives on the board overlay, and multiplayer progress/status lives in the battle strip.
 
 ---

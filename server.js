@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, 'public');
 const sharedDir = path.join(__dirname, 'src', 'shared');
 const matches = new Map();
-const MATCH_START_DELAY_MS = 3000;
+const MATCH_START_DELAY_MS = 5000;
 const cloudMode = process.env.CLOUD_MODE === 'true';
 const lanDiscoveryEnabled = !cloudMode && process.env.LAN_DISCOVERY_ENABLED !== 'false';
 const DISCOVERY_PORT = Number.parseInt(process.env.DISCOVERY_PORT ?? '32145', 10);

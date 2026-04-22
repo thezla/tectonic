@@ -64,6 +64,12 @@ function closeEventSource() {
   }
 }
 
+function closeOptionsModal() {
+  if (optionsModalElement?.open) {
+    optionsModalElement.close();
+  }
+}
+
 function scheduleRender() {
   if (renderFrameRequested) {
     return;
@@ -992,6 +998,7 @@ async function hostRace() {
     };
     applyPuzzle(payload.puzzle);
     openMatchEventStream();
+    closeOptionsModal();
   } catch (error) {
     console.error(error);
     matchStatusElement.textContent = 'Failed to create a race.';
@@ -1035,6 +1042,7 @@ async function joinRaceByCode(roomCode) {
     joinCodeInput.value = '';
     applyPuzzle(payload.puzzle);
     openMatchEventStream();
+    closeOptionsModal();
   } catch (error) {
     console.error(error);
     matchStatusElement.textContent = 'Failed to join that race.';
