@@ -3,12 +3,14 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import type { BoardValues, MatchEvent, MatchStatus, Puzzle } from '../src/shared/api.js';
 import { getAllowedValues, validateBoard } from '../src/shared/validate.js';
 
 const port = 3112;
-const TEST_TIMEOUT_MS = 10000;
-const serverProcess = spawn('node', ['server.js'], {
-  cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+const TEST_TIMEOUT_MS = 30000;
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const serverProcess = spawn(process.execPath, ['--import', 'tsx', 'src/server/server.ts'], {
+  cwd: projectRoot,
   env: {
     ...process.env,
     PORT: String(port),
@@ -21,7 +23,17 @@ const testTimeout = setTimeout(() => {
   process.exit(1);
 }, TEST_TIMEOUT_MS);
 
-function wait(milliseconds) {
+type ReaderState = {
+  reader: ReadableStreamDefaultReader<Uint8Array>;
+  buffer: string;
+};
+
+type SseReadResult = {
+  payload: MatchEvent;
+  readerState: ReaderState;
+};
+
+function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
@@ -30,7 +42,7 @@ function wait(milliseconds) {
 async function waitForServer() {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
-      const response = await fetch(`http://localhost:${port}/`);
+      const response = await fetch(`http://localhost:${port}/api/discovery/matches`);
 
       if (response.ok) {
         return;
@@ -45,7 +57,7 @@ async function waitForServer() {
   throw new Error('Server did not start in time.');
 }
 
-async function postJson(path, payload) {
+async function postJson<TResponse>(path: string, payload: unknown): Promise<TResponse> {
   const response = await fetch(`http://localhost:${port}${path}`, {
     method: 'POST',
     headers: {
@@ -58,14 +70,54 @@ async function postJson(path, payload) {
     throw new Error(`Request failed: ${path} (${response.status}) ${await response.text()}`);
   }
 
-  return response.json();
+  return response.json() as Promise<TResponse>;
 }
 
-async function readNextSseEvent(readerState) {
+function readBufferedSseEvent(readerState: ReaderState): SseReadResult | ReaderState | null {
+  const { reader, buffer } = readerState;
+  const marker = buffer.indexOf('\n\n');
+
+  if (marker === -1) {
+    return null;
+  }
+
+  const chunk = buffer.slice(0, marker);
+  const dataLine = chunk
+    .split('\n')
+    .find((line) => line.startsWith('data: '));
+
+  if (!dataLine) {
+    return {
+      reader,
+      buffer: buffer.slice(marker + 2),
+    };
+  }
+
+  return {
+    payload: JSON.parse(dataLine.slice(6)) as MatchEvent,
+    readerState: {
+      reader,
+      buffer: buffer.slice(marker + 2),
+    },
+  };
+}
+
+async function readNextSseEvent(readerState: ReaderState): Promise<SseReadResult> {
   const { reader } = readerState;
   let { buffer } = readerState;
 
   while (true) {
+    const bufferedEvent = readBufferedSseEvent({ reader, buffer });
+
+    if (bufferedEvent && 'payload' in bufferedEvent) {
+      return bufferedEvent;
+    }
+
+    if (bufferedEvent) {
+      buffer = bufferedEvent.buffer;
+      continue;
+    }
+
     const { done, value } = await reader.read();
 
     if (done) {
@@ -73,39 +125,15 @@ async function readNextSseEvent(readerState) {
     }
 
     buffer += new TextDecoder().decode(value, { stream: true });
-    const marker = buffer.indexOf('\n\n');
-
-    if (marker === -1) {
-      continue;
-    }
-
-    const chunk = buffer.slice(0, marker);
-    const dataLine = chunk
-      .split('\n')
-      .find((line) => line.startsWith('data: '));
-
-    if (!dataLine) {
-      readerState.buffer = buffer.slice(marker + 2);
-      continue;
-    }
-
-    return {
-      payload: JSON.parse(dataLine.slice(6)),
-      readerState: {
-        reader,
-        buffer: buffer.slice(marker + 2),
-      },
-    };
   }
 }
 
-async function waitForFinishedMatchEvent(readerState, winnerPlayerId) {
+async function waitForFinishedMatchEvent(readerState: ReaderState, winnerPlayerId: string): Promise<ReaderState> {
   let nextReaderState = readerState;
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const event = await readNextSseEvent(nextReaderState);
     nextReaderState = event.readerState;
-
     if (
       event.payload.type === 'match_state' &&
       event.payload.match.status === 'finished' &&
@@ -118,12 +146,27 @@ async function waitForFinishedMatchEvent(readerState, winnerPlayerId) {
   throw new Error('Guest did not receive finished match state over SSE.');
 }
 
-function solvePuzzle(puzzle) {
+async function waitForMatchStatusEvent(readerState: ReaderState, status: MatchStatus): Promise<ReaderState> {
+  let nextReaderState = readerState;
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const event = await readNextSseEvent(nextReaderState);
+    nextReaderState = event.readerState;
+
+    if (event.payload.type === 'match_state' && event.payload.match.status === status) {
+      return nextReaderState;
+    }
+  }
+
+  throw new Error(`Guest did not receive ${status} match state over SSE.`);
+}
+
+function solvePuzzle(puzzle: Puzzle): BoardValues {
   const values = [...puzzle.givens];
 
-  function search() {
-    let bestIndex = null;
-    let bestCandidates = null;
+  function search(): boolean {
+    let bestIndex: number | null = null;
+    let bestCandidates: number[] | null = null;
 
     for (let index = 0; index < values.length; index += 1) {
       if (Number.isInteger(values[index])) {
@@ -169,8 +212,8 @@ function solvePuzzle(puzzle) {
 try {
   await waitForServer();
 
-  const host = await postJson('/api/matches', {});
-  const guest = await postJson(`/api/matches/${host.matchId}/join`, {});
+  const host = await postJson<{ matchId: string; playerId: string; puzzle: Puzzle }>('/api/matches', {});
+  const guest = await postJson<{ playerId: string; puzzle: Puzzle }>(`/api/matches/${host.matchId}/join`, {});
 
   if (JSON.stringify(host.puzzle) !== JSON.stringify(guest.puzzle)) {
     throw new Error('Host and guest did not receive the same puzzle.');
@@ -181,7 +224,11 @@ try {
     `http://localhost:${port}/api/matches/${host.matchId}/events?playerId=${guest.playerId}`,
     { signal: eventController.signal },
   );
-  let readerState = {
+  if (!guestEventsResponse.body) {
+    throw new Error('Guest SSE response had no body.');
+  }
+
+  let readerState: ReaderState = {
     reader: guestEventsResponse.body.getReader(),
     buffer: '',
   };
@@ -192,13 +239,15 @@ try {
     throw new Error('Guest did not receive initial match_state event.');
   }
 
+  readerState = await waitForMatchStatusEvent(readerState, 'active');
+
   await postJson(`/api/matches/${host.matchId}/progress`, {
     playerId: host.playerId,
     filledCount: host.puzzle.givens.filter((value) => value !== null).length,
   });
 
   const solvedValues = solvePuzzle(host.puzzle);
-  const finish = await postJson(`/api/matches/${host.matchId}/finish`, {
+  const finish = await postJson<{ match: { winnerPlayerId: string | null; status: MatchStatus } }>(`/api/matches/${host.matchId}/finish`, {
     playerId: host.playerId,
     values: solvedValues,
   });
@@ -213,7 +262,7 @@ try {
   readerState.reader.releaseLock();
   eventController.abort();
 
-  const lateFinish = await postJson(`/api/matches/${host.matchId}/finish`, {
+  const lateFinish = await postJson<{ match: { winnerPlayerId: string | null } }>(`/api/matches/${host.matchId}/finish`, {
     playerId: guest.playerId,
     values: solvedValues,
   });
@@ -224,12 +273,11 @@ try {
 
   console.log('Multiplayer smoke test passed.');
   clearTimeout(testTimeout);
-  process.exit(0);
 } finally {
   serverProcess.kill();
 
   try {
-    await once(serverProcess, 'exit');
+    await Promise.race([once(serverProcess, 'exit'), wait(1000)]);
   } catch {
     // Process may already be gone.
   }

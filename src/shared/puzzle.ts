@@ -1,4 +1,5 @@
 import { buildRegionCells, countSolutions, getCellIndex, getCellPosition } from './validate.js';
+import type { BoardValues, Puzzle, PuzzleWithSolution } from './api.js';
 
 const DEFAULT_WIDTH = 5;
 const DEFAULT_HEIGHT = 5;
@@ -151,9 +152,9 @@ const BASE_LAYOUTS = [
   },
 ];
 const RECENT_LAYOUT_MEMORY = 3;
-const recentLayoutIndices = [];
+const recentLayoutIndices: number[] = [];
 
-function shuffle(items) {
+function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
 
   for (let index = copy.length - 1; index > 0; index -= 1) {
@@ -164,11 +165,11 @@ function shuffle(items) {
   return copy;
 }
 
-function randomChoice(items) {
+function randomChoice<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function chooseBaseLayout() {
+function chooseBaseLayout(): { regions: number[]; solution: number[] } {
   const availableIndices = BASE_LAYOUTS
     .map((_, index) => index)
     .filter((index) => !recentLayoutIndices.includes(index));
@@ -183,8 +184,8 @@ function chooseBaseLayout() {
   return BASE_LAYOUTS[selectedIndex];
 }
 
-function rotateSquareGrid(cells, width) {
-  const rotated = Array(cells.length).fill(null);
+function rotateSquareGrid<T>(cells: T[], width: number): T[] {
+  const rotated = Array<T>(cells.length);
 
   for (let index = 0; index < cells.length; index += 1) {
     const { row, column } = getCellPosition(width, index);
@@ -196,8 +197,8 @@ function rotateSquareGrid(cells, width) {
   return rotated;
 }
 
-function reflectSquareGrid(cells, width) {
-  const reflected = Array(cells.length).fill(null);
+function reflectSquareGrid<T>(cells: T[], width: number): T[] {
+  const reflected = Array<T>(cells.length);
 
   for (let index = 0; index < cells.length; index += 1) {
     const { row, column } = getCellPosition(width, index);
@@ -208,7 +209,7 @@ function reflectSquareGrid(cells, width) {
   return reflected;
 }
 
-function transformBoard(values, regions, width) {
+function transformBoard(values: number[], regions: number[], width: number): { values: number[]; regions: number[] } {
   let nextValues = [...values];
   let nextRegions = [...regions];
   const rotations = Math.floor(Math.random() * 4);
@@ -229,7 +230,7 @@ function transformBoard(values, regions, width) {
   };
 }
 
-function getOrthogonalNeighborIndices(width, height, index) {
+function getOrthogonalNeighborIndices(width: number, height: number, index: number): number[] {
   const { row, column } = getCellPosition(width, index);
   const candidates = [
     [row - 1, column],
@@ -246,7 +247,7 @@ function getOrthogonalNeighborIndices(width, height, index) {
     .map(([nextRow, nextColumn]) => getCellIndex(width, nextRow, nextColumn));
 }
 
-function assertRegionsAreOrthogonallyConnected(puzzle) {
+function assertRegionsAreOrthogonallyConnected(puzzle: Puzzle): void {
   const regionCells = buildRegionCells(puzzle);
 
   for (const [regionId, cells] of regionCells.entries()) {
@@ -255,6 +256,10 @@ function assertRegionsAreOrthogonallyConnected(puzzle) {
 
     while (queue.length > 0) {
       const currentIndex = queue.shift();
+
+      if (currentIndex === undefined) {
+        continue;
+      }
 
       for (const neighborIndex of getOrthogonalNeighborIndices(
         puzzle.width,
@@ -280,8 +285,8 @@ function assertRegionsAreOrthogonallyConnected(puzzle) {
   }
 }
 
-function createGivens(puzzle, solution) {
-  const givens = [...solution];
+function createGivens(puzzle: Puzzle, solution: number[]): BoardValues {
+  const givens: BoardValues = [...solution];
   const removalOrder = shuffle(solution.map((_, index) => index));
 
   for (const cellIndex of removalOrder) {
@@ -296,7 +301,7 @@ function createGivens(puzzle, solution) {
   return givens;
 }
 
-export function createPuzzleWithSolution({ width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT } = {}) {
+export function createPuzzleWithSolution({ width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT } = {}): PuzzleWithSolution {
   if (width !== DEFAULT_WIDTH || height !== DEFAULT_HEIGHT) {
     throw new Error('This MVP generator currently supports only 5x5 boards.');
   }
@@ -308,7 +313,8 @@ export function createPuzzleWithSolution({ width = DEFAULT_WIDTH, height = DEFAU
       width,
       height,
       regions: transformed.regions,
-    };
+      givens: [],
+    } satisfies Puzzle;
 
     assertRegionsAreOrthogonallyConnected(puzzle);
 
@@ -330,6 +336,6 @@ export function createPuzzleWithSolution({ width = DEFAULT_WIDTH, height = DEFAU
   throw new Error('Failed to generate a unique-solution puzzle.');
 }
 
-export function createPuzzle(options = {}) {
+export function createPuzzle(options = {}): Puzzle {
   return createPuzzleWithSolution(options).puzzle;
 }

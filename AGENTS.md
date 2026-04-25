@@ -10,14 +10,31 @@ This file tracks UI/UX work and significant changes made to the project.
 Players fill regions with numbers 1–N (where N is the region size) such that identical
 numbers never touch, even diagonally.
 
-The stack is intentionally minimal:
-- **Frontend**: Vanilla JS (`public/app.js`), plain CSS (`public/style.css`), single HTML file (`public/index.html`)
-- **Backend**: Node.js HTTP server (`server.js`) with Socket-like SSE for multiplayer
-- **Shared logic**: `src/shared/puzzle.js` (generation) and `src/shared/validate.js` (validation)
+The stack is intentionally small but now typed and build-based:
+- **Frontend**: React + TypeScript via Vite (`src/client`), with the existing visual design preserved in `src/client/style.css`
+- **Backend**: Node.js HTTP server in TypeScript (`src/server/server.ts`) with Socket-like SSE for multiplayer
+- **Shared logic**: TypeScript puzzle generation, validation, and API types in `src/shared`
 
 ---
 
 ## Change History
+
+### React + TypeScript refactor (current session)
+
+**Goal**: Modernize the codebase while preserving the existing design, gameplay, mobile layout, multiplayer behavior, LAN discovery, and deployment behavior.
+
+Changes:
+- Added Vite, React, TypeScript, TSX-based smoke test execution, and production build scripts.
+- Replaced the vanilla `public/app.js` client with a React app under `src/client`.
+- Split client behavior into typed API, board helper, match-event, and status modules.
+- Converted shared puzzle generation and validation modules to TypeScript and added shared API/domain types.
+- Converted the Node HTTP/SSE server to TypeScript under `src/server/server.ts` and updated production start to use built output.
+- Moved styling to `src/client/style.css` while preserving existing class names and visual behavior.
+- Updated multiplayer smoke testing to wait for the 5-second countdown and to correctly drain buffered SSE events.
+- Updated Render deployment to run `npm run build` before `npm start`.
+- Removed stale vanilla JS/server entrypoints and old JS shared/test files.
+
+---
 
 ### Mobile-friendly UI pass (PR #1 – `codex/make-ui-mobile-friendly`)
 

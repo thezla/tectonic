@@ -1,4 +1,5 @@
 import { createPuzzleWithSolution } from '../src/shared/puzzle.js';
+import type { BoardValues, Puzzle } from '../src/shared/api.js';
 import {
   buildRegionCells,
   countSolutions,
@@ -7,7 +8,7 @@ import {
   validateBoard,
 } from '../src/shared/validate.js';
 
-const AMBIGUOUS_PUZZLE = {
+const AMBIGUOUS_PUZZLE: Puzzle = {
   width: 5,
   height: 5,
   regions: [
@@ -17,12 +18,13 @@ const AMBIGUOUS_PUZZLE = {
     2, 3, 0, 1, 1,
     2, 3, 3, 1, 1,
   ],
+  givens: Array(25).fill(null),
 };
-const AMBIGUOUS_GIVENS = Array(25).fill(null);
-const regionLayoutSignatures = new Set();
-const sizeHistograms = new Set();
+const AMBIGUOUS_GIVENS: BoardValues = Array(25).fill(null);
+const regionLayoutSignatures = new Set<string>();
+const sizeHistograms = new Set<string>();
 
-function getOrthogonalNeighborIndices(width, height, index) {
+function getOrthogonalNeighborIndices(width: number, height: number, index: number): number[] {
   const { row, column } = getCellPosition(width, index);
   const candidates = [
     [row - 1, column],
@@ -39,7 +41,7 @@ function getOrthogonalNeighborIndices(width, height, index) {
     .map(([nextRow, nextColumn]) => getCellIndex(width, nextRow, nextColumn));
 }
 
-function assertRegionsAreOrthogonallyConnected(puzzle) {
+function assertRegionsAreOrthogonallyConnected(puzzle: Puzzle): void {
   const regionCells = buildRegionCells(puzzle);
 
   for (const [regionId, cells] of regionCells.entries()) {
@@ -48,6 +50,10 @@ function assertRegionsAreOrthogonallyConnected(puzzle) {
 
     while (queue.length > 0) {
       const currentIndex = queue.shift();
+
+      if (currentIndex === undefined) {
+        continue;
+      }
 
       for (const neighborIndex of getOrthogonalNeighborIndices(
         puzzle.width,
