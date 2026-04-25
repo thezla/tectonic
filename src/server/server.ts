@@ -1,18 +1,48 @@
 import http from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import dgram from 'node:dgram';
 import os from 'node:os';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createPuzzle, createPuzzleWithSolution } from './src/shared/puzzle.js';
-import { validateBoard } from './src/shared/validate.js';
+import { createPuzzle, createPuzzleWithSolution } from '../shared/puzzle.js';
+import { validateBoard } from '../shared/validate.js';
+import type { BoardValues, DiscoveryMatch, MatchState, PlayerRole, Puzzle } from '../shared/api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const publicDir = path.join(__dirname, 'public');
-const sharedDir = path.join(__dirname, 'src', 'shared');
-const matches = new Map();
+const projectRoot = process.cwd();
+const publicDir = path.join(projectRoot, 'dist', 'client');
+type PlayerRecord = {
+  id: string;
+  role: PlayerRole;
+  filledCount: number;
+  connected: boolean;
+};
+
+type MatchRecord = {
+  id: string;
+  puzzle: Puzzle;
+  solution: number[];
+  givenCount: number;
+  puzzleRevision: number;
+  status: MatchState['status'];
+  winnerPlayerId: string | null;
+  startsAt: number | null;
+  startTimer: NodeJS.Timeout | null;
+  subscribers: Set<ServerResponse>;
+  players: {
+    host: PlayerRecord | null;
+    guest: PlayerRecord | null;
+  };
+};
+
+type DiscoveryEntry = DiscoveryMatch & {
+  lastSeenAt: number;
+};
+
+const matches = new Map<string, MatchRecord>();
 const MATCH_START_DELAY_MS = 5000;
 const cloudMode = process.env.CLOUD_MODE === 'true';
 const lanDiscoveryEnabled = !cloudMode && process.env.LAN_DISCOVERY_ENABLED !== 'false';
@@ -21,9 +51,9 @@ const DISCOVERY_INTERVAL_MS = 2000;
 const DISCOVERY_TTL_MS = 7000;
 const instanceId = createId(10);
 const discoverySocket = lanDiscoveryEnabled ? dgram.createSocket('udp4') : null;
-const remoteDiscoveryEntries = new Map();
+const remoteDiscoveryEntries = new Map<string, DiscoveryEntry>();
 
-const MIME_TYPES = {
+const MIME_TYPES: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -31,7 +61,7 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml; charset=utf-8',
 };
 
-function sendJson(response, statusCode, payload) {
+function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, {
     'Content-Type': MIME_TYPES['.json'],
     'Cache-Control': 'no-store',
@@ -39,14 +69,14 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
-function sendText(response, statusCode, text) {
+function sendText(response: ServerResponse, statusCode: number, text: string): void {
   response.writeHead(statusCode, {
     'Content-Type': 'text/plain; charset=utf-8',
   });
   response.end(text);
 }
 
-async function readJsonBody(request) {
+async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks = [];
 
   for await (const chunk of request) {
@@ -60,7 +90,7 @@ async function readJsonBody(request) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-async function serveFile(request, response, filePath) {
+async function serveFile(request: IncomingMessage, response: ServerResponse, filePath: string): Promise<void> {
   try {
     const content = await readFile(filePath);
     const extension = path.extname(filePath);
@@ -85,7 +115,7 @@ async function serveFile(request, response, filePath) {
   }
 }
 
-function resolveUnder(baseDir, subPath) {
+function resolveUnder(baseDir: string, subPath: string): string | null {
   const resolvedPath = path.resolve(baseDir, subPath);
 
   if (resolvedPath !== baseDir && !resolvedPath.startsWith(`${baseDir}${path.sep}`)) {
@@ -95,15 +125,11 @@ function resolveUnder(baseDir, subPath) {
   return resolvedPath;
 }
 
-function resolveStaticPath(urlPath) {
+function resolveStaticPath(urlPath: string): string | null {
   const normalizedPath = path.normalize(urlPath);
 
   if (urlPath === '/') {
     return path.join(publicDir, 'index.html');
-  }
-
-  if (urlPath.startsWith('/shared/')) {
-    return resolveUnder(sharedDir, normalizedPath.replace(/^\/shared\//, ''));
   }
 
   return resolveUnder(publicDir, normalizedPath.slice(1));
@@ -130,7 +156,7 @@ function createUniqueMatchId() {
   return matchId;
 }
 
-function buildMatchState(match) {
+function buildMatchState(match: MatchRecord): MatchState {
   return {
     matchId: match.id,
     roomCode: match.id,
@@ -138,7 +164,7 @@ function buildMatchState(match) {
     status: match.status,
     winnerPlayerId: match.winnerPlayerId,
     startsAt: match.startsAt,
-    players: ['host', 'guest'].map((role) => {
+    players: (['host', 'guest'] as const).map((role) => {
       const player = match.players[role];
 
       return {
@@ -151,11 +177,11 @@ function buildMatchState(match) {
   };
 }
 
-function sendSseEvent(response, payload) {
+function sendSseEvent(response: ServerResponse, payload: unknown): void {
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-function broadcastMatchState(match) {
+function broadcastMatchState(match: MatchRecord): void {
   const payload = {
     type: 'match_state',
     match: buildMatchState(match),
@@ -166,13 +192,13 @@ function broadcastMatchState(match) {
   }
 }
 
-function broadcastEvent(match, payload) {
+function broadcastEvent(match: MatchRecord, payload: unknown): void {
   for (const response of match.subscribers) {
     sendSseEvent(response, payload);
   }
 }
 
-function getPlayerRecord(match, playerId) {
+function getPlayerRecord(match: MatchRecord, playerId: unknown): PlayerRecord | null {
   if (match.players.host?.id === playerId) {
     return match.players.host;
   }
@@ -184,7 +210,7 @@ function getPlayerRecord(match, playerId) {
   return null;
 }
 
-function resetHostToWaiting(match) {
+function resetHostToWaiting(match: MatchRecord): void {
   if (match.startTimer) {
     clearTimeout(match.startTimer);
     match.startTimer = null;
@@ -200,7 +226,7 @@ function resetHostToWaiting(match) {
   }
 }
 
-function assignPuzzleToMatch(match, puzzle, solution) {
+function assignPuzzleToMatch(match: MatchRecord, puzzle: Puzzle, solution: number[]): void {
   match.puzzle = puzzle;
   match.solution = solution;
   match.givenCount = puzzle.givens.filter((value) => value !== null).length;
@@ -215,7 +241,7 @@ function assignPuzzleToMatch(match, puzzle, solution) {
   }
 }
 
-function startCountdown(match) {
+function startCountdown(match: MatchRecord): void {
   if (match.startTimer) {
     clearTimeout(match.startTimer);
   }
@@ -235,7 +261,7 @@ function startCountdown(match) {
   }, MATCH_START_DELAY_MS);
 }
 
-function resetMatchForRematch(match) {
+function resetMatchForRematch(match: MatchRecord): void {
   const { puzzle, solution } = createPuzzleWithSolution();
   assignPuzzleToMatch(match, puzzle, solution);
   match.winnerPlayerId = null;
@@ -253,7 +279,7 @@ function resetMatchForRematch(match) {
   }
 }
 
-function closeMatch(match, reason) {
+function closeMatch(match: MatchRecord, reason: string): void {
   if (match.startTimer) {
     clearTimeout(match.startTimer);
     match.startTimer = null;
@@ -278,8 +304,8 @@ function createMatch() {
   const playerId = createId(8);
   const match = {
     id: createUniqueMatchId(),
-    puzzle: null,
-    solution: null,
+    puzzle,
+    solution,
     givenCount: 0,
     puzzleRevision: 0,
     status: 'waiting',
@@ -296,7 +322,7 @@ function createMatch() {
       },
       guest: null,
     },
-  };
+  } satisfies MatchRecord;
 
   assignPuzzleToMatch(match, puzzle, solution);
 
@@ -308,7 +334,7 @@ function createMatch() {
   };
 }
 
-function attachEventStream(request, response, match, playerId) {
+function attachEventStream(request: IncomingMessage, response: ServerResponse, match: MatchRecord, playerId: string): void {
   const player = getPlayerRecord(match, playerId);
 
   if (!player) {
@@ -340,7 +366,7 @@ function attachEventStream(request, response, match, playerId) {
   });
 }
 
-function sendMatchResponse(response, match, playerId, role) {
+function sendMatchResponse(response: ServerResponse, match: MatchRecord, playerId: string, role: PlayerRole): void {
   sendJson(response, 200, {
     matchId: match.id,
     roomCode: match.id,
@@ -369,18 +395,18 @@ function getLanAddress() {
   return '127.0.0.1';
 }
 
-function getJoinableMatches() {
+function getJoinableMatches(): MatchRecord[] {
   return [...matches.values()].filter((match) => match.status === 'waiting');
 }
 
-function getDiscoverySnapshot() {
+function getDiscoverySnapshot(): DiscoveryMatch[] {
   if (!lanDiscoveryEnabled) {
     return [];
   }
 
   const now = Date.now();
   const localAddress = getLanAddress();
-  const localEntries = getJoinableMatches().map((match) => ({
+  const localEntries: DiscoveryMatch[] = getJoinableMatches().map((match) => ({
     instanceId,
     matchId: match.id,
     roomCode: match.id,
@@ -389,7 +415,7 @@ function getDiscoverySnapshot() {
     port,
     status: match.status,
     origin: `http://${localAddress}:${port}`,
-    source: 'local',
+    source: 'local' as const,
     updatedAt: now,
   }));
 
@@ -445,7 +471,7 @@ function broadcastDiscovery() {
   discoverySocket.send(payload, DISCOVERY_PORT, '255.255.255.255');
 }
 
-function handleDiscoveryMessage(message) {
+function handleDiscoveryMessage(message: Buffer): void {
   if (!lanDiscoveryEnabled) {
     return;
   }
@@ -715,7 +741,7 @@ const server = http.createServer(async (request, response) => {
       }
 
       if (Number.isInteger(body.filledCount)) {
-        player.filledCount = body.filledCount;
+        player.filledCount = body.filledCount as number;
       }
 
       broadcastMatchState(match);

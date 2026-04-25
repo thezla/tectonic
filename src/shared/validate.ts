@@ -1,16 +1,18 @@
-export function getCellIndex(width, row, column) {
+import type { BoardValues, Puzzle, RegionId, ValidationResult } from './api.js';
+
+export function getCellIndex(width: number, row: number, column: number): number {
   return row * width + column;
 }
 
-export function getCellPosition(width, index) {
+export function getCellPosition(width: number, index: number): { row: number; column: number } {
   return {
     row: Math.floor(index / width),
     column: index % width,
   };
 }
 
-export function buildRegionCells(puzzle) {
-  const regionCells = new Map();
+export function buildRegionCells(puzzle: Puzzle): Map<RegionId, number[]> {
+  const regionCells = new Map<RegionId, number[]>();
 
   puzzle.regions.forEach((regionId, index) => {
     const cells = regionCells.get(regionId) ?? [];
@@ -21,8 +23,8 @@ export function buildRegionCells(puzzle) {
   return regionCells;
 }
 
-export function getRegionSizes(puzzle) {
-  const sizes = {};
+export function getRegionSizes(puzzle: Puzzle): Record<number, number> {
+  const sizes: Record<number, number> = {};
 
   for (const [regionId, cells] of buildRegionCells(puzzle).entries()) {
     sizes[regionId] = cells.length;
@@ -31,9 +33,9 @@ export function getRegionSizes(puzzle) {
   return sizes;
 }
 
-export function getTouchingCellIndices(puzzle, index) {
+export function getTouchingCellIndices(puzzle: Puzzle, index: number): number[] {
   const { row, column } = getCellPosition(puzzle.width, index);
-  const touching = [];
+  const touching: number[] = [];
 
   for (let rowOffset = -1; rowOffset <= 1; rowOffset += 1) {
     for (let columnOffset = -1; columnOffset <= 1; columnOffset += 1) {
@@ -60,7 +62,7 @@ export function getTouchingCellIndices(puzzle, index) {
   return touching;
 }
 
-export function getAllowedValues(puzzle, values, index) {
+export function getAllowedValues(puzzle: Puzzle, values: BoardValues, index: number): number[] {
   const regionSizes = getRegionSizes(puzzle);
   const regionId = puzzle.regions[index];
   const maxValue = regionSizes[regionId];
@@ -78,7 +80,7 @@ export function getAllowedValues(puzzle, values, index) {
       .filter((value) => Number.isInteger(value)),
   );
 
-  const allowed = [];
+  const allowed: number[] = [];
 
   for (let value = 1; value <= maxValue; value += 1) {
     if (!regionValues.has(value) && !touchingValues.has(value)) {
@@ -89,15 +91,15 @@ export function getAllowedValues(puzzle, values, index) {
   return allowed;
 }
 
-export function validateBoard(puzzle, values) {
+export function validateBoard(puzzle: Puzzle, values: BoardValues): ValidationResult {
   const regionCells = buildRegionCells(puzzle);
   const regionSizes = getRegionSizes(puzzle);
-  const conflicts = new Set();
-  const completedRegions = new Set();
+  const conflicts = new Set<number>();
+  const completedRegions = new Set<RegionId>();
 
   for (const [regionId, cells] of regionCells.entries()) {
     const maxValue = regionSizes[regionId];
-    const seen = new Map();
+    const seen = new Map<number, number>();
     let isComplete = true;
 
     for (const cellIndex of cells) {
@@ -108,18 +110,20 @@ export function validateBoard(puzzle, values) {
         continue;
       }
 
-      if (value < 1 || value > maxValue) {
+      const cellValue = value as number;
+
+      if (cellValue < 1 || cellValue > maxValue) {
         conflicts.add(cellIndex);
         continue;
       }
 
-      const existingIndex = seen.get(value);
+      const existingIndex = seen.get(cellValue);
 
       if (existingIndex !== undefined) {
         conflicts.add(existingIndex);
         conflicts.add(cellIndex);
       } else {
-        seen.set(value, cellIndex);
+        seen.set(cellValue, cellIndex);
       }
     }
 
@@ -159,9 +163,12 @@ export function validateBoard(puzzle, values) {
   };
 }
 
-function chooseNextCellForSearch(puzzle, values) {
-  let bestIndex = null;
-  let bestCandidates = null;
+function chooseNextCellForSearch(
+  puzzle: Puzzle,
+  values: BoardValues,
+): { index: number; candidates: number[] } | null {
+  let bestIndex: number | null = null;
+  let bestCandidates: number[] | null = null;
 
   for (let index = 0; index < values.length; index += 1) {
     if (Number.isInteger(values[index])) {
@@ -191,7 +198,7 @@ function chooseNextCellForSearch(puzzle, values) {
   return { index: bestIndex, candidates: bestCandidates };
 }
 
-export function countSolutions(puzzle, values, limit = 2) {
+export function countSolutions(puzzle: Puzzle, values: BoardValues, limit = 2): number {
   const searchValues = [...values];
   const initialState = validateBoard(puzzle, searchValues);
 

@@ -4,8 +4,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "check": "node --check server.js && node --check public/app.js && node --check src/shared/puzzle.js && node --check src/shared/validate.js && node --check scripts/smoke-test.js",
-    "test": "node scripts/smoke-test.js"
+    "dev": "vite --host 0.0.0.0",
+    "dev:server": "tsx src/server/server.ts",
+    "build": "tsc -p tsconfig.server.json && vite build",
+    "start": "node dist/server/server/server.js",
+    "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "test": "vitest run && tsx scripts/smoke-test.ts && tsx scripts/multiplayer-smoke-test.ts"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
   }
 }

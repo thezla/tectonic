@@ -6,9 +6,10 @@ import path from 'node:path';
 import { getAllowedValues, validateBoard } from '../src/shared/validate.js';
 
 const port = 3112;
-const TEST_TIMEOUT_MS = 10000;
-const serverProcess = spawn('node', ['server.js'], {
-  cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+const TEST_TIMEOUT_MS = 30000;
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const serverProcess = spawn(process.execPath, ['--import', 'tsx', 'src/server/server.ts'], {
+  cwd: projectRoot,
   env: {
     ...process.env,
     PORT: String(port),
@@ -30,7 +31,7 @@ function wait(milliseconds) {
 async function waitForServer() {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
-      const response = await fetch(`http://localhost:${port}/`);
+      const response = await fetch(`http://localhost:${port}/api/discovery/matches`);
 
       if (response.ok) {
         return;
@@ -66,6 +67,28 @@ async function readNextSseEvent(readerState) {
   let { buffer } = readerState;
 
   while (true) {
+    const existingMarker = buffer.indexOf('\n\n');
+
+    if (existingMarker !== -1) {
+      const chunk = buffer.slice(0, existingMarker);
+      const dataLine = chunk
+        .split('\n')
+        .find((line) => line.startsWith('data: '));
+
+      if (dataLine) {
+        return {
+          payload: JSON.parse(dataLine.slice(6)),
+          readerState: {
+            reader,
+            buffer: buffer.slice(existingMarker + 2),
+          },
+        };
+      }
+
+      buffer = buffer.slice(existingMarker + 2);
+      continue;
+    }
+
     const { done, value } = await reader.read();
 
     if (done) {
@@ -105,7 +128,6 @@ async function waitForFinishedMatchEvent(readerState, winnerPlayerId) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const event = await readNextSseEvent(nextReaderState);
     nextReaderState = event.readerState;
-
     if (
       event.payload.type === 'match_state' &&
       event.payload.match.status === 'finished' &&
@@ -116,6 +138,21 @@ async function waitForFinishedMatchEvent(readerState, winnerPlayerId) {
   }
 
   throw new Error('Guest did not receive finished match state over SSE.');
+}
+
+async function waitForMatchStatusEvent(readerState, status) {
+  let nextReaderState = readerState;
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const event = await readNextSseEvent(nextReaderState);
+    nextReaderState = event.readerState;
+
+    if (event.payload.type === 'match_state' && event.payload.match.status === status) {
+      return nextReaderState;
+    }
+  }
+
+  throw new Error(`Guest did not receive ${status} match state over SSE.`);
 }
 
 function solvePuzzle(puzzle) {
@@ -192,6 +229,8 @@ try {
     throw new Error('Guest did not receive initial match_state event.');
   }
 
+  readerState = await waitForMatchStatusEvent(readerState, 'active');
+
   await postJson(`/api/matches/${host.matchId}/progress`, {
     playerId: host.playerId,
     filledCount: host.puzzle.givens.filter((value) => value !== null).length,
@@ -224,12 +263,11 @@ try {
 
   console.log('Multiplayer smoke test passed.');
   clearTimeout(testTimeout);
-  process.exit(0);
 } finally {
   serverProcess.kill();
 
   try {
-    await once(serverProcess, 'exit');
+    await Promise.race([once(serverProcess, 'exit'), wait(1000)]);
   } catch {
     // Process may already be gone.
   }
