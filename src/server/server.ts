@@ -4,14 +4,11 @@ import dgram from 'node:dgram';
 import os from 'node:os';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { createPuzzle, createPuzzleWithSolution } from '../shared/puzzle.js';
 import { validateBoard } from '../shared/validate.js';
 import type { BoardValues, DiscoveryMatch, MatchState, PlayerRole, Puzzle } from '../shared/api.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const projectRoot = process.cwd();
 const publicDir = path.join(projectRoot, 'dist', 'client');
 type PlayerRecord = {
@@ -45,7 +42,7 @@ type DiscoveryEntry = DiscoveryMatch & {
 const matches = new Map<string, MatchRecord>();
 const MATCH_START_DELAY_MS = 5000;
 const cloudMode = process.env.CLOUD_MODE === 'true';
-const lanDiscoveryEnabled = !cloudMode && process.env.LAN_DISCOVERY_ENABLED !== 'false';
+let lanDiscoveryEnabled = !cloudMode && process.env.LAN_DISCOVERY_ENABLED !== 'false';
 const DISCOVERY_PORT = Number.parseInt(process.env.DISCOVERY_PORT ?? '32145', 10);
 const DISCOVERY_INTERVAL_MS = 2000;
 const DISCOVERY_TTL_MS = 7000;
@@ -824,6 +821,11 @@ const server = http.createServer(async (request, response) => {
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
 
 if (lanDiscoveryEnabled && discoverySocket) {
+  discoverySocket.on('error', (error) => {
+    console.warn(`LAN discovery disabled: ${error.message}`);
+    lanDiscoveryEnabled = false;
+    discoverySocket.close();
+  });
   discoverySocket.on('message', handleDiscoveryMessage);
   discoverySocket.on('listening', () => {
     discoverySocket.setBroadcast(true);
