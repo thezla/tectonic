@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Puzzle } from '../shared/api.js';
+import { validateBoard } from '../shared/validate.js';
+import { loadSoloProgress, saveSoloProgress } from './soloStorage.js';
 import {
   advanceSoloTimer,
   createSoloTimer,
@@ -62,6 +64,30 @@ describe('solo timer', () => {
     const resumed = advanceSoloTimer(restored, playing, 100000);
     expect(advanceSoloTimer(resumed, playing, 100500).elapsedMs).toBe(1200);
     expect(storage.getItem(SOLO_TIMER_STORAGE_KEY)).not.toContain('runningSince');
+  });
+
+  it.each([false, true])('restores solo entries with their independent timer (completed: %s)', (completed) => {
+    const entries = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => entries.get(key) ?? null,
+      setItem: (key: string, value: string) => { entries.set(key, value); },
+    };
+    const values = completed ? [1, 2] : [1, null];
+    const started = advanceSoloTimer(createSoloTimer(puzzleKey), playing, 100);
+    const checkpoint = pauseSoloTimer(advanceSoloTimer(started, { ...playing, solved: completed }, 800), 800);
+    saveSoloProgress(puzzle, values, storage);
+    writeSoloTimer(checkpoint, storage);
+
+    const restored = loadSoloProgress(storage)!;
+    expect(restored).toEqual({ puzzle, values });
+    const timer = readSoloTimer(getSoloPuzzleKey(restored.puzzle), storage);
+    const resumed = advanceSoloTimer(timer, {
+      ...playing,
+      solved: validateBoard(restored.puzzle, restored.values).solved,
+    }, 100000);
+    expect(resumed).toMatchObject({ elapsedMs: 700, completed, eligible: true });
+    expect(advanceSoloTimer(resumed, { ...playing, solved: completed }, 100500).elapsedMs)
+      .toBe(completed ? 700 : 1200);
   });
 
   it('never credits race completion or an abandoned race board as a solo win', () => {
