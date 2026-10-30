@@ -460,6 +460,7 @@ export function App() {
           status={status}
           joinCode={joinCode}
           roomCodeText={roomCodeText}
+          roomCode={matchSession?.match.roomCode}
           matchStatus={matchStatus}
           lanDiscoveryEnabled={lanDiscoveryEnabled}
           discoveredMatches={discoveredMatches}

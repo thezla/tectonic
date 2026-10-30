@@ -89,6 +89,16 @@ region connectivity, and layout variety.
 - Render currently builds during deployment and again through `npm start`.
   Account for both commands when changing the deployment flow.
 
+## Race Invitations
+
+- Existing hosts and guests can copy an invitation from the options dialog.
+  Links retain the public origin and app path with only `?join=ROOMCODE`, never
+  URL credentials, previous query parameters, or fragments. Opening a link uses
+  the existing join flow; it does not grant the sender's player identity.
+- Clipboard copying requires a supported secure context. If unavailable or denied,
+  show a selectable read-only link for manual copying. Feedback resets when the
+  dialog closes or the room changes; stale clipboard completions are ignored.
+
 ## Known UX Limitations
 
 - The locked overlay shows the status title, not the derived detail text.
