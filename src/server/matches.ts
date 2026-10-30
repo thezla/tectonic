@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { MatchState, PlayerRole, Puzzle } from '../shared/api.js';
@@ -66,7 +67,7 @@ export function buildMatchState(match: MatchRecord): MatchState {
 
 export function createMatch(): { match: MatchRecord; playerId: string } {
   const { puzzle, solution } = createPuzzleWithSolution();
-  const playerId = createId(8);
+  const playerId = randomBytes(32).toString('hex');
   const match = {
     id: createUniqueMatchId(),
     puzzle,
@@ -96,7 +97,7 @@ export function createMatch(): { match: MatchRecord; playerId: string } {
 }
 
 export function createGuest(match: MatchRecord): string {
-  const playerId = createId(8);
+  const playerId = randomBytes(32).toString('hex');
   match.players.guest = {
     id: playerId,
     role: 'guest',
