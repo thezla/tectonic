@@ -20,7 +20,9 @@ import {
 import { BattleStrip } from './components/BattleStrip.js';
 import { BoardView } from './components/BoardView.js';
 import { OptionsModal } from './components/OptionsModal.js';
+import { SoloCompletion } from './components/SoloCompletion.js';
 import { useDiscovery } from './hooks/useDiscovery.js';
+import { useSoloTimer } from './hooks/useSoloTimer.js';
 import { openMatchEventStream } from './matchEvents.js';
 import { loadSoloProgress, saveSoloProgress } from './soloStorage.js';
 import { getBoardMessage, getBoardStatus, getEditableBoardState, getMatchStatus } from './status.js';
@@ -58,8 +60,9 @@ export function App() {
   puzzleRef.current = puzzle;
   valuesRef.current = values;
 
-  const editableBoard = getEditableBoardState(isLoadingPuzzle, matchSession);
   const result = useMemo(() => (puzzle ? validateBoard(puzzle, values) : null), [puzzle, values]);
+  const soloTimer = useSoloTimer(puzzle, isLoadingPuzzle, matchSession !== null, result?.solved === true);
+  const editableBoard = getEditableBoardState(isLoadingPuzzle, matchSession) && !soloTimer.completed;
   const boardMessage = getBoardMessage(puzzle, values, result, isLoadingPuzzle, matchSession, status);
   const showLockedOverlay = boardMessage.tone === 'locked';
   const matchStatus = getMatchStatus(matchSession, lanDiscoveryEnabled);
@@ -100,7 +103,9 @@ export function App() {
     document.activeElement instanceof HTMLElement && document.activeElement.blur();
 
     try {
-      applyPuzzle(await loadPuzzle(), true);
+      const nextPuzzle = await loadPuzzle();
+      soloTimer.reset(nextPuzzle);
+      applyPuzzle(nextPuzzle, true);
     } catch (error) {
       console.error(error);
       setStatus('Failed to load the puzzle.');
@@ -269,17 +274,18 @@ export function App() {
   }
 
   function resetBoard() {
-    if (!puzzle || !editableBoard) {
+    if (!puzzle || !getEditableBoardState(isLoadingPuzzle, matchSession)) {
       return;
     }
 
     setValues([...puzzle.givens]);
     setSelectedIndex(null);
+    soloTimer.reset(puzzle);
   }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (!puzzleRef.current || !getEditableBoardState(isLoadingPuzzle, matchSessionRef.current)) {
+      if (!puzzleRef.current || !editableBoard) {
         return;
       }
 
@@ -465,7 +471,7 @@ export function App() {
   const isGuest = matchSession?.role === 'guest';
   const isHost = matchSession?.role === 'host';
   const finishedMatch = matchSession?.match.status === 'finished';
-  const resetDisabled = isLoadingPuzzle || puzzle === null || boardLocked || matchSession?.match.status === 'finished';
+  const resetDisabled = isLoadingPuzzle || puzzle === null || !getEditableBoardState(isLoadingPuzzle, matchSession);
 
   return (
     <main className="layout">
@@ -522,6 +528,11 @@ export function App() {
             setSelectedIndex(index);
             updateCellValue(index, null);
           }}
+        />
+        <SoloCompletion
+          completed={soloTimer.completed}
+          elapsedMs={soloTimer.elapsedMs}
+          onPlayAgain={() => void loadSoloPuzzle()}
         />
       </section>
     </main>
