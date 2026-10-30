@@ -135,7 +135,7 @@ export function Cell({
         onClear();
       }}
     >
-      {value ?? ''}
+      <span key={value ?? 'empty'} className="cell-value">{value ?? ''}</span>
     </button>
   );
 }

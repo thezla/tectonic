@@ -1,5 +1,6 @@
 import type { BoardValues, MatchSession, Puzzle, ValidationResult } from '../../shared/api.js';
 import { Cell } from './Cell.js';
+import { CopyRaceInvitation } from './CopyRaceInvitation.js';
 
 type BoardViewProps = {
   puzzle: Puzzle | null;
@@ -55,7 +56,7 @@ export function BoardView({
             ))
           : null}
       </div>
-      <div id="board-locked-overlay" className="board-locked-overlay" aria-hidden="true" hidden={!showLockedOverlay}>
+      <div id="board-locked-overlay" className="board-locked-overlay" aria-hidden={!showLockedOverlay} hidden={!showLockedOverlay}>
         {showLockedOverlay && matchSession ? (
           <div
             id="board-locked-overlay-room-code"
@@ -65,10 +66,20 @@ export function BoardView({
             <p id="board-locked-overlay-label" className="board-locked-overlay-label">
               {matchSession.role === 'host' ? 'Host room code' : 'Race room code'}
             </p>
-            <p id="board-locked-overlay-code" className="board-locked-overlay-code">{matchSession.match.roomCode}</p>
+            <input
+              id="board-locked-overlay-code"
+              className="board-locked-overlay-code"
+              type="text"
+              readOnly
+              aria-label="Race room code"
+              value={matchSession.match.roomCode}
+              onFocus={(event) => event.currentTarget.select()}
+              onClick={(event) => event.currentTarget.select()}
+            />
+            <CopyRaceInvitation key={matchSession.match.roomCode} roomCode={matchSession.match.roomCode} />
           </div>
         ) : null}
-        <p id="board-locked-overlay-title" className="board-locked-overlay-title">{showLockedOverlay ? lockedOverlayTitle : ''}</p>
+        <p key={lockedOverlayTitle} id="board-locked-overlay-title" className="board-locked-overlay-title">{showLockedOverlay ? lockedOverlayTitle : ''}</p>
       </div>
     </div>
   );

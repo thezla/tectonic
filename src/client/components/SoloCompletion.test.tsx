@@ -19,5 +19,13 @@ describe('SoloCompletion', () => {
     expect(markup).not.toContain('Puzzle solved!');
     expect(markup).not.toContain('Play again');
     expect(markup).not.toContain('<button');
+    expect(markup).not.toContain('completion-sparkles');
+  });
+
+  it('keeps the celebration decorative and only mounts it for a completed puzzle', () => {
+    const markup = renderToStaticMarkup(<SoloCompletion completed elapsedMs={1000} onPlayAgain={() => {}} />);
+    expect(markup).toContain('class="completion-sparkles" aria-hidden="true"');
+    expect(markup).toContain('Completed in 1s');
+    expect(markup.match(/role="status"/g)).toHaveLength(1);
   });
 });

@@ -12,6 +12,9 @@ export function SoloCompletion({ completed, elapsedMs, onPlayAgain }: SoloComple
       <div role="status" aria-live="polite" aria-atomic="true">
         {completed ? (
           <div className="solo-completion-message">
+            <span className="completion-sparkles" aria-hidden="true">
+              <span /><span /><span /><span /><span /><span />
+            </span>
             <strong><span aria-hidden="true">✦ </span>Puzzle solved!</strong>
             <span>Completed in {formatSoloElapsed(elapsedMs)}</span>
           </div>

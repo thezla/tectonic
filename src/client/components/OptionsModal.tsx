@@ -93,7 +93,7 @@ export function OptionsModal({
     >
       <div className="options-modal-content">
         <div className="options-modal-header">
-          <h1>Tectonic</h1>
+          <h2>Make yourself at home.</h2>
           <button id="close-menu" className="menu-close" type="button" aria-label="Close game options" onClick={() => onOpenChange(false)}>
             ✕
           </button>

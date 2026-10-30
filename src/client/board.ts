@@ -2,10 +2,7 @@ import type { BoardValues, MatchSession, Puzzle, ValidationResult } from '../sha
 import { getCellPosition, getRegionSizes } from '../shared/validate.js';
 
 export function getRegionPalette(regionCount: number): string[] {
-  return Array.from({ length: regionCount }, (_, index) => {
-    const hue = Math.round((index * 360) / Math.max(regionCount, 1));
-    return `hsl(${hue} 42% 87%)`;
-  });
+  return Array.from({ length: regionCount }, (_, index) => `var(--region-${index % 6 + 1})`);
 }
 
 export function getNeighborIndex(puzzle: Puzzle, index: number, rowOffset: number, columnOffset: number): number | null {

@@ -1,65 +1,77 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { createRaceInvitation } from '../invitation.js';
+import { copyRaceText, shareRaceInvitation } from '../raceSharing.js';
 
 export function CopyRaceInvitation({ roomCode }: { roomCode: string }) {
   const [message, setMessage] = useState('');
-  const [manualLink, setManualLink] = useState('');
-  const [isCopying, setIsCopying] = useState(false);
+  const [manualCopy, setManualCopy] = useState<{ label: string; value: string } | null>(null);
+  const [pending, setPending] = useState<'code' | 'link' | null>(null);
   const requestRef = useRef(0);
 
   useEffect(() => () => {
     requestRef.current += 1;
   }, []);
 
-  async function copyInvitation() {
+  async function copyOrShare(action: 'code' | 'link') {
     const request = ++requestRef.current;
-    const invitation = createRaceInvitation(window.location.href, roomCode);
     setMessage('');
-    setManualLink('');
-
-    if (!window.isSecureContext || typeof navigator.clipboard?.writeText !== 'function') {
-      setMessage('Automatic copying is unavailable. Select and copy the invitation link below.');
-      setManualLink(invitation);
-      return;
-    }
-
-    setIsCopying(true);
+    setManualCopy(null);
+    setPending(action);
     try {
-      await navigator.clipboard.writeText(invitation);
-      if (request === requestRef.current) {
-        setMessage('Invitation copied.');
+      const value = action === 'code' ? roomCode : createRaceInvitation(window.location.href, roomCode);
+      const outcome = action === 'code'
+        ? await copyRaceText(value) ? 'copied' : 'manual'
+        : await shareRaceInvitation(value);
+
+      if (request !== requestRef.current) {
+        return;
+      }
+
+      if (outcome === 'manual') {
+        const label = action === 'code' ? 'Room code' : 'Invitation link';
+        setMessage(`Automatic ${action === 'code' ? 'copying' : 'sharing'} is unavailable. Select and copy the ${label.toLowerCase()} below.`);
+        setManualCopy({ label, value });
+      } else if (outcome === 'cancelled') {
+        setMessage('Sharing canceled.');
+      } else if (outcome === 'shared') {
+        setMessage('Invitation shared.');
+      } else {
+        setMessage(action === 'code' ? 'Room code copied.' : 'Invitation link copied. Share it with your opponent.');
       }
     } catch {
       if (request === requestRef.current) {
-        setMessage('Could not copy the invitation. Select and copy the link below.');
-        setManualLink(invitation);
+        setMessage('Could not prepare the invitation. Select and copy the room code instead.');
+        setManualCopy({ label: 'Room code', value: roomCode });
       }
     } finally {
       if (request === requestRef.current) {
-        setIsCopying(false);
+        setPending(null);
       }
     }
   }
 
   return (
-    <>
-      <button type="button" disabled={isCopying} onClick={() => void copyInvitation()}>
-        {isCopying ? 'Copying…' : 'Copy invitation'}
+    <div className="race-invitation-actions">
+      <button type="button" disabled={pending !== null} onClick={() => void copyOrShare('code')}>
+        <span aria-hidden="true">⧉ </span>{pending === 'code' ? 'Copying…' : 'Copy code'}
+      </button>
+      <button type="button" disabled={pending !== null} onClick={() => void copyOrShare('link')}>
+        <span aria-hidden="true">↗ </span>{pending === 'link' ? 'Sharing…' : 'Share link'}
       </button>
       <p className="invitation-feedback" role="status" aria-live="polite" aria-atomic="true">{message}</p>
-      {manualLink && (
+      {manualCopy && (
         <label className="invitation-link">
-          Invitation link
+          {manualCopy.label}
           <input
             type="text"
             readOnly
-            value={manualLink}
+            value={manualCopy.value}
             onFocus={(event) => event.currentTarget.select()}
             onClick={(event) => event.currentTarget.select()}
           />
         </label>
       )}
-    </>
+    </div>
   );
 }
