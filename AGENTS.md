@@ -89,6 +89,23 @@ region connectivity, and layout variety.
 - Render currently builds during deployment and again through `npm start`.
   Account for both commands when changing the deployment flow.
 
+## Solo Completion
+
+- Solo completion appears below the visible board, announces elapsed time politely,
+  and offers Play again through the existing solo puzzle loader. Solved solo boards
+  stay locked until reset or a new puzzle; multiplayer overlays are unchanged.
+- Timing counts visible active solo session time only: loading, hidden tabs,
+  races, and time outside the page are excluded. It freezes on first solve.
+- `tectonic.solo-timer.v1` independently stores accumulated milliseconds and
+  completion/eligibility, keyed by dimensions, regions, and givens. No wall-clock
+  start time is stored. Checkpoints run every 250ms and on page hide/cleanup;
+  abrupt termination can lose the last checkpoint. Storage failures are harmless.
+- Restoring the same puzzle resumes its timer without counting closed-tab time;
+  puzzle/value persistence is separate. Restore puzzle/values without calling
+  the timer's `reset`; explicit new-puzzle loads and board resets call it.
+- Leaving a race with its board retained does not make it a timed solo attempt,
+  even if already solved. Reset or load a new solo puzzle to start timing again.
+
 ## Known UX Limitations
 
 - The locked overlay shows the status title, not the derived detail text.

@@ -588,6 +588,30 @@ button:not(.cell):disabled {
   cursor: not-allowed;
 }
 
+.solo-completion-area {
+  width: 100%;
+  max-width: var(--board-max-width);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.solo-completion-area:has(.solo-completion-message) {
+  padding: 0.85rem;
+  border: 1px solid #b4d9bc;
+  border-radius: 14px;
+  background: #eef8f0;
+  color: #214e2c;
+}
+
+.solo-completion-message {
+  display: grid;
+  gap: 0.25rem;
+  line-height: 1.4;
+}
+
 .legend {
   margin-top: 1rem;
 }
