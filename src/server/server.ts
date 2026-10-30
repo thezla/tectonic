@@ -184,10 +184,19 @@ async function handleMatchRoute(
         return true;
       }
 
-      if (Number.isInteger(body.filledCount)) {
-        player.filledCount = body.filledCount as number;
+      const filledCount = body.filledCount;
+
+      if (
+        typeof filledCount !== 'number' ||
+        !Number.isInteger(filledCount) ||
+        filledCount < match.givenCount ||
+        filledCount > match.puzzle.givens.length
+      ) {
+        sendText(response, 400, 'Invalid filled count');
+        return true;
       }
 
+      player.filledCount = filledCount;
       broadcastMatchState(match);
       sendJson(response, 200, { match: buildMatchState(match) });
       return true;
