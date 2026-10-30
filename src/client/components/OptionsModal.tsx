@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import type { DiscoveryMatch } from '../../shared/api.js';
+import { CopyRaceInvitation } from './CopyRaceInvitation.js';
 import { HostedGamesList } from './HostedGamesList.js';
 
 type OptionsModalProps = {
@@ -11,6 +12,7 @@ type OptionsModalProps = {
   status: string;
   joinCode: string;
   roomCodeText: string;
+  roomCode?: string;
   matchStatus: string;
   lanDiscoveryEnabled: boolean;
   discoveredMatches: DiscoveryMatch[];
@@ -37,6 +39,7 @@ export function OptionsModal({
   status,
   joinCode,
   roomCodeText,
+  roomCode,
   matchStatus,
   lanDiscoveryEnabled,
   discoveredMatches,
@@ -143,6 +146,7 @@ export function OptionsModal({
             <button id="close-race" type="button" hidden={!isHost} disabled={isLoadingPuzzle || !isHost} onClick={onCloseRace}>
               Close race
             </button>
+            {isOpen && roomCode && <CopyRaceInvitation key={roomCode} roomCode={roomCode} />}
           </div>
           <p id="room-code" className="status match-status">{roomCodeText}</p>
           <p id="match-status" className="status match-status">{matchStatus}</p>
