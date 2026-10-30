@@ -189,7 +189,7 @@ async function handleMatchRoute(
       if (
         typeof filledCount !== 'number' ||
         !Number.isInteger(filledCount) ||
-        filledCount < match.givenCount ||
+        filledCount < 0 ||
         filledCount > match.puzzle.givens.length
       ) {
         sendText(response, 400, 'Invalid filled count');

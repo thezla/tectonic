@@ -273,11 +273,11 @@ try {
     return progress.match;
   }
 
-  for (const filledCount of [givenCount, boardSize, givenCount + 1]) {
+  for (const filledCount of [0, Math.max(0, givenCount - 1), givenCount, boardSize, givenCount + 1]) {
     await reportAndCheckProgress(host.playerId, filledCount);
   }
 
-  const invalidCounts = [undefined, null, '3', true, {}, [], givenCount + 0.5, -1, givenCount - 1, boardSize + 1];
+  const invalidCounts = [undefined, null, '3', true, {}, [], givenCount + 0.5, -1, boardSize + 1];
   const invalidBodies = invalidCounts.map((filledCount) => JSON.stringify({ playerId: host.playerId, filledCount }));
   invalidBodies.push(`{"playerId":"${host.playerId}","filledCount":`);
   let guestFilledCount = givenCount;
