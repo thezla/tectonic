@@ -89,6 +89,15 @@ region connectivity, and layout variety.
 - Render currently builds during deployment and again through `npm start`.
   Account for both commands when changing the deployment flow.
 
+## Solo Resume
+
+- `src/client/soloStorage.ts` stores versioned, validated solo puzzles and entries
+  in localStorage. Startup restores them unless a join link takes precedence.
+- Only boards loaded as solo are saved; race boards, including those retained
+  after leaving a race, never replace solo progress. New solo puzzles and resets
+  update the save. Storage failures are non-fatal; no credentials or timing data
+  are stored, and unrelated storage keys are left untouched.
+
 ## Race Invitations
 
 - Existing hosts and guests can copy an invitation from the options dialog.

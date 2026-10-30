@@ -22,6 +22,7 @@ import { BoardView } from './components/BoardView.js';
 import { OptionsModal } from './components/OptionsModal.js';
 import { useDiscovery } from './hooks/useDiscovery.js';
 import { openMatchEventStream } from './matchEvents.js';
+import { loadSoloProgress, saveSoloProgress } from './soloStorage.js';
 import { getBoardMessage, getBoardStatus, getEditableBoardState, getMatchStatus } from './status.js';
 
 function normalizeRoomCode(roomCode: string): string {
@@ -29,8 +30,12 @@ function normalizeRoomCode(roomCode: string): string {
 }
 
 export function App() {
-  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
-  const [values, setValues] = useState<BoardValues>([]);
+  const [startup] = useState(() => {
+    const joinCode = new URLSearchParams(window.location.search).get('join');
+    return { joinCode, solo: joinCode ? null : loadSoloProgress() };
+  });
+  const [puzzle, setPuzzle] = useState<Puzzle | null>(startup.solo?.puzzle ?? null);
+  const [values, setValues] = useState<BoardValues>(startup.solo?.values ?? []);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isLoadingPuzzle, setIsLoadingPuzzle] = useState(false);
   const [matchSession, setMatchSession] = useState<MatchSession | null>(null);
@@ -45,6 +50,8 @@ export function App() {
   const matchSessionRef = useRef<MatchSession | null>(null);
   const puzzleRef = useRef<Puzzle | null>(null);
   const valuesRef = useRef<BoardValues>([]);
+  const soloPuzzleRef = useRef<Puzzle | null>(startup.solo?.puzzle ?? null);
+  const startupStartedRef = useRef(false);
   const { lanDiscoveryEnabled, discoveredMatches } = useDiscovery();
 
   matchSessionRef.current = matchSession;
@@ -58,7 +65,8 @@ export function App() {
   const matchStatus = getMatchStatus(matchSession, lanDiscoveryEnabled);
   const roomCodeText = matchSession ? `Race code: ${matchSession.match.roomCode}` : 'Solo mode';
 
-  function applyPuzzle(nextPuzzle: Puzzle) {
+  function applyPuzzle(nextPuzzle: Puzzle, solo = false) {
+    soloPuzzleRef.current = solo ? nextPuzzle : null;
     setPuzzle(nextPuzzle);
     setValues([...nextPuzzle.givens]);
     setSelectedIndex(null);
@@ -92,7 +100,7 @@ export function App() {
     document.activeElement instanceof HTMLElement && document.activeElement.blur();
 
     try {
-      applyPuzzle(await loadPuzzle());
+      applyPuzzle(await loadPuzzle(), true);
     } catch (error) {
       console.error(error);
       setStatus('Failed to load the puzzle.');
@@ -290,7 +298,12 @@ export function App() {
   });
 
   useEffect(() => {
-    const joinCodeParam = new URLSearchParams(window.location.search).get('join');
+    if (startupStartedRef.current) {
+      return;
+    }
+
+    startupStartedRef.current = true;
+    const joinCodeParam = startup.joinCode;
 
     if (joinCodeParam) {
       const normalized = normalizeRoomCode(joinCodeParam);
@@ -299,8 +312,16 @@ export function App() {
       return;
     }
 
-    void loadSoloPuzzle();
+    if (!startup.solo) {
+      void loadSoloPuzzle();
+    }
   }, []);
+
+  useEffect(() => {
+    if (puzzle && puzzle === soloPuzzleRef.current && !isLoadingPuzzle && !matchSession && !matchSessionRef.current) {
+      saveSoloProgress(puzzle, values);
+    }
+  }, [puzzle, values, isLoadingPuzzle, matchSession]);
 
   useEffect(() => {
     if (!matchSession) {
