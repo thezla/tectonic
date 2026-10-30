@@ -476,9 +476,15 @@ export function App() {
   return (
     <main className="layout">
       <section className={`board-panel${boardLocked ? ' locked' : ''}`}>
-        <button id="open-menu" className="menu-trigger" type="button" aria-label="Open game options" onClick={() => setIsOptionsOpen(true)}>
-          ☰
-        </button>
+        <header className="game-header">
+          <h1 className="wordmark">
+            <span className="tile-mark" aria-hidden="true"><span /><span /><span /><span /></span>
+            tectonic
+          </h1>
+          <button id="open-menu" className="menu-trigger" type="button" aria-label="Open game options" onClick={() => setIsOptionsOpen(true)}>
+            <span aria-hidden="true">☰</span>
+          </button>
+        </header>
         <OptionsModal
           isOpen={isOptionsOpen}
           isLoadingPuzzle={isLoadingPuzzle}
@@ -505,35 +511,54 @@ export function App() {
           onCloseRace={() => void closeHostedRace()}
           onJoinDiscoveredMatch={(match) => void joinDiscoveredMatch(match)}
         />
-        {matchSession && puzzle && result ? (
-          <BattleStrip
-            matchSession={matchSession}
-            values={values}
-            result={result}
-            opponentBurst={opponentBurst}
-          />
-        ) : null}
-        <BoardView
-          puzzle={puzzle}
-          values={values}
-          result={result}
-          boardLocked={boardLocked}
-          selectedIndex={selectedIndex}
-          showLockedOverlay={showLockedOverlay}
-          lockedOverlayTitle={boardMessage.title}
-          matchSession={matchSession}
-          onSelectCell={setSelectedIndex}
-          onCycleCell={cycleCellValue}
-          onClearCell={(index) => {
-            setSelectedIndex(index);
-            updateCellValue(index, null);
-          }}
-        />
-        <SoloCompletion
-          completed={soloTimer.completed}
-          elapsedMs={soloTimer.elapsedMs}
-          onPlayAgain={() => void loadSoloPuzzle()}
-        />
+        <div className="game-content">
+          <div className="game-intro">
+            <p className="mode-label">{matchSession ? 'Head-to-head' : 'Solo puzzle'}</p>
+            <h2>Fill the regions.<br /> Mind the neighbors.</h2>
+            <p className="game-description">
+              Fill each region with the numbers 1 through its size, using each number once. Matching numbers must not touch, even diagonally.
+            </p>
+          </div>
+          <div className="play-area">
+            {matchSession && puzzle && result ? (
+              <BattleStrip
+                matchSession={matchSession}
+                values={values}
+                result={result}
+                opponentBurst={opponentBurst}
+              />
+            ) : null}
+            <BoardView
+              puzzle={puzzle}
+              values={values}
+              result={result}
+              boardLocked={boardLocked}
+              selectedIndex={selectedIndex}
+              showLockedOverlay={showLockedOverlay}
+              lockedOverlayTitle={boardMessage.title}
+              matchSession={matchSession}
+              onSelectCell={setSelectedIndex}
+              onCycleCell={cycleCellValue}
+              onClearCell={(index) => {
+                setSelectedIndex(index);
+                updateCellValue(index, null);
+              }}
+            />
+            <div className="board-meta">
+              <span>{puzzle ? `${puzzle.width} × ${puzzle.height} / Number puzzle` : 'Preparing your puzzle…'}</span>
+              <span aria-hidden="true">One region at a time ↗</span>
+            </div>
+            <SoloCompletion
+              completed={soloTimer.completed}
+              elapsedMs={soloTimer.elapsedMs}
+              onPlayAgain={() => void loadSoloPuzzle()}
+            />
+          </div>
+        </div>
+        <footer className="panel-footer">
+          <span>A small shift. A new perspective.</span>
+          <span>Tap to cycle · Hold to clear</span>
+        </footer>
       </section>
     </main>
   );

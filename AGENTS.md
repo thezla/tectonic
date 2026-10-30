@@ -70,6 +70,14 @@ region connectivity, and layout variety.
 - Preserve API routes and SSE event contracts unless a change explicitly requires
   coordinated client/server updates.
 - Keep existing CSS classes and responsive behavior when changing components.
+- The Soft Terrain visual design uses charcoal/lavender surfaces, mint accents,
+  and six tinted region colors from the approved dark mockup, alongside
+  a tile wordmark, contour details, and a straight, offset-shadow board. Keep
+  decoration non-interactive and preserve reduced-motion and focus styles.
+- Motion is CSS-driven and finite: entrances, keyed number/countdown text,
+  region blooms, and decorative completion sparkles. Animate value spans, not
+  cell buttons, so focus and touch gestures survive updates. Never delay game
+  state or input for animations; honor `prefers-reduced-motion` throughout.
 - Add regression coverage alongside existing unit or smoke tests for changed behavior.
 - Run `npm run check` and relevant tests for code changes; use `npm run build` to
   validate build or deployment changes.
@@ -118,6 +126,11 @@ region connectivity, and layout variety.
 ## Race Invitations
 
 - Existing hosts and guests can copy an invitation from the options dialog.
+- Room-code text is selectable. The locked overlay also offers Copy code and
+  Share link, with both actions available in options throughout the session.
+  Sharing uses the native share sheet when supported, otherwise copies the
+  invitation link or shows a read-only manual-copy field. Canceling the native
+  share sheet does not copy anything. Overlay actions never unlock board cells.
   Links retain the public origin and app path with only `?join=ROOMCODE`, never
   URL credentials, previous query parameters, or fragments. Opening a link uses
   the existing join flow; it does not grant the sender's player identity.

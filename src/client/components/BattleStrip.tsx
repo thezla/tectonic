@@ -44,7 +44,7 @@ export function BattleStrip({ matchSession, values, result, opponentBurst }: Bat
             <div id="battle-you-fill" className="battle-meter-fill battle-meter-fill-you" style={{ width: `${localPercent}%` }} />
           </div>
         </div>
-        <div className={`battle-lane battle-lane-opponent${opponentBurst ? ' battle-lane-hit' : ''}`} key={opponentBurst?.key ?? 'opponent'}>
+        <div className={`battle-lane battle-lane-opponent${opponentBurst ? ' battle-lane-hit' : ''}`}>
           <div className="battle-lane-label-row">
             <span className="battle-lane-label">Opponent</span>
             <span id="battle-opponent-count" className="battle-lane-count">{opponentCount}/{totalCells}</span>
@@ -52,7 +52,7 @@ export function BattleStrip({ matchSession, values, result, opponentBurst }: Bat
           <div className="battle-meter">
             <div id="battle-opponent-fill" className="battle-meter-fill battle-meter-fill-opponent" style={{ width: `${opponentPercent}%` }} />
           </div>
-          <span id="battle-opponent-burst" className="battle-opponent-burst" aria-hidden="true">+{opponentBurst?.amount ?? 1}</span>
+          <span key={opponentBurst?.key ?? 'opponent'} id="battle-opponent-burst" className="battle-opponent-burst" aria-hidden="true">+{opponentBurst?.amount ?? 1}</span>
         </div>
       </div>
     </section>
