@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import type { BoardValues, MatchEvent, MatchStatus, Puzzle } from '../src/shared/api.js';
+import type { BoardValues, MatchEvent, MatchState, MatchStatus, Puzzle } from '../src/shared/api.js';
 import { getAllowedValues, validateBoard } from '../src/shared/validate.js';
 
 const port = 3112;
@@ -213,6 +213,17 @@ try {
   await waitForServer();
 
   const host = await postJson<{ matchId: string; playerId: string; puzzle: Puzzle }>('/api/matches', {});
+  const givenCount = host.puzzle.givens.filter((value) => value !== null).length;
+  const boardSize = host.puzzle.givens.length;
+  const waitingProgress = await postJson<{ match: MatchState }>(`/api/matches/${host.matchId}/progress`, {
+    playerId: host.playerId,
+    filledCount: -1,
+  });
+
+  if (waitingProgress.match.status !== 'waiting' || waitingProgress.match.players[0].filledCount !== givenCount) {
+    throw new Error('Inactive progress changed waiting match state.');
+  }
+
   const guest = await postJson<{ playerId: string; puzzle: Puzzle }>(`/api/matches/${host.matchId}/join`, {});
 
   if (JSON.stringify(host.puzzle) !== JSON.stringify(guest.puzzle)) {
@@ -241,10 +252,55 @@ try {
 
   readerState = await waitForMatchStatusEvent(readerState, 'active');
 
-  await postJson(`/api/matches/${host.matchId}/progress`, {
-    playerId: host.playerId,
-    filledCount: host.puzzle.givens.filter((value) => value !== null).length,
-  });
+  async function reportAndCheckProgress(playerId: string, filledCount: number): Promise<MatchState> {
+    const progress = await postJson<{ match: MatchState }>(`/api/matches/${host.matchId}/progress`, {
+      playerId,
+      filledCount,
+    });
+    const role = playerId === host.playerId ? 'host' : 'guest';
+
+    if (progress.match.players.find((player) => player.role === role)?.filledCount !== filledCount) {
+      throw new Error(`Valid ${role} progress was not saved.`);
+    }
+
+    const event = await readNextSseEvent(readerState);
+    readerState = event.readerState;
+
+    if (event.payload.type !== 'match_state' || JSON.stringify(event.payload.match) !== JSON.stringify(progress.match)) {
+      throw new Error('Progress SSE did not match saved state, or rejected progress was broadcast.');
+    }
+
+    return progress.match;
+  }
+
+  for (const filledCount of [0, Math.max(0, givenCount - 1), givenCount, boardSize, givenCount + 1]) {
+    await reportAndCheckProgress(host.playerId, filledCount);
+  }
+
+  const invalidCounts = [undefined, null, '3', true, {}, [], givenCount + 0.5, -1, boardSize + 1];
+  const invalidBodies = invalidCounts.map((filledCount) => JSON.stringify({ playerId: host.playerId, filledCount }));
+  invalidBodies.push(`{"playerId":"${host.playerId}","filledCount":`);
+  let guestFilledCount = givenCount;
+
+  for (const body of invalidBodies) {
+    const response = await fetch(`http://localhost:${port}/api/matches/${host.matchId}/progress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    await response.text();
+
+    if (response.status !== 400) {
+      throw new Error(`Invalid progress ${body} returned ${response.status}, expected 400.`);
+    }
+
+    guestFilledCount = guestFilledCount === givenCount ? boardSize : givenCount;
+    const state = await reportAndCheckProgress(guest.playerId, guestFilledCount);
+
+    if (state.players.find((player) => player.role === 'host')?.filledCount !== givenCount + 1) {
+      throw new Error('Rejected progress changed the host progress.');
+    }
+  }
 
   const solvedValues = solvePuzzle(host.puzzle);
   const finish = await postJson<{ match: { winnerPlayerId: string | null; status: MatchStatus } }>(`/api/matches/${host.matchId}/finish`, {
@@ -257,6 +313,19 @@ try {
   }
 
   readerState = await waitForFinishedMatchEvent(readerState, host.playerId);
+
+  const finishedProgress = await postJson<{ match: MatchState }>(`/api/matches/${host.matchId}/progress`, {
+    playerId: host.playerId,
+    filledCount: 'invalid',
+  });
+
+  if (
+    finishedProgress.match.status !== 'finished' ||
+    finishedProgress.match.winnerPlayerId !== host.playerId ||
+    finishedProgress.match.players[0].filledCount !== boardSize
+  ) {
+    throw new Error('Inactive progress changed finished match state.');
+  }
 
   await readerState.reader.cancel();
   readerState.reader.releaseLock();
