@@ -1,206 +1,97 @@
-# Tectonic – Agent Progress Log
-
-This file tracks UI/UX work and significant changes made to the project.
-
----
+# Tectonic – Agent Guide
 
 ## Project Overview
 
-**Tectonic** is a browser-based number puzzle game (similar to a Kakuro/Suguru variant).
-Players fill regions with numbers 1–N (where N is the region size) such that identical
-numbers never touch, even diagonally.
+Tectonic is a browser-based number puzzle with solo play and two-player races.
+Fill each region with numbers 1–N, where N is the region size. Each number appears
+once per region, and identical numbers must not touch, even diagonally.
 
-The stack is intentionally small but now typed and build-based:
-- **Frontend**: React + TypeScript via Vite (`src/client`), with the existing visual design preserved in `src/client/style.css`
-- **Backend**: Node.js HTTP server in TypeScript (`src/server/server.ts`) with Socket-like SSE for multiplayer
-- **Shared logic**: TypeScript puzzle generation, validation, and API types in `src/shared`
+Keep the stack small: React, TypeScript, Vite, plain CSS, and a Node HTTP server.
+Multiplayer updates use Server-Sent Events (SSE), not WebSockets.
 
----
+## Code Map
 
-## Change History
+- `src/client/App.tsx`: game state, input handling, and multiplayer orchestration.
+- `src/client/components/`: board, cells, options dialog, race progress, and discovery UI.
+- `src/client/hooks/useDiscovery.ts`: LAN discovery polling.
+- `src/client/api.ts`: HTTP API calls.
+- `src/client/matchEvents.ts`: SSE subscriptions and event parsing.
+- `src/client/board.ts` and `src/client/status.ts`: board helpers and derived UI state.
+- `src/client/style.css`: visual design and responsive layouts.
+- `src/shared/api.ts`: shared domain and API types.
+- `src/shared/puzzle.ts` and `src/shared/validate.ts`: generation, solving, and validation.
+- `src/server/server.ts`: HTTP routes and server entrypoint.
+- `src/server/matches.ts`: in-memory rooms, players, countdowns, rematches, and SSE.
+- `src/server/discovery.ts`: UDP-based LAN discovery.
+- `src/server/http.ts`: request parsing, responses, and static file serving.
+- `scripts/`: puzzle and multiplayer smoke tests.
+- `render.yaml`: Render deployment configuration.
 
-### React + TypeScript refactor (current session)
+The old `public/*` client and root `server.js` have been removed. Edit the
+TypeScript sources, not generated files under `dist/`.
 
-**Goal**: Modernize the codebase while preserving the existing design, gameplay, mobile layout, multiplayer behavior, LAN discovery, and deployment behavior.
+## Development Commands
 
-Changes:
-- Added Vite, React, TypeScript, TSX-based smoke test execution, and production build scripts.
-- Replaced the vanilla `public/app.js` client with a React app under `src/client`.
-- Split client behavior into typed API, board helper, match-event, and status modules.
-- Converted shared puzzle generation and validation modules to TypeScript and added shared API/domain types.
-- Converted the Node HTTP/SSE server to TypeScript under `src/server/server.ts` and updated production start to use built output.
-- Moved styling to `src/client/style.css` while preserving existing class names and visual behavior.
-- Updated multiplayer smoke testing to wait for the 5-second countdown and to correctly drain buffered SSE events.
-- Updated Render deployment to run `npm run build` before `npm start`.
-- Removed stale vanilla JS/server entrypoints and old JS shared/test files.
+- `npm install`: install dependencies.
+- `npm run dev:server`: start the backend on port 3000 by default.
+- `npm run dev`: start Vite in another terminal; `/api` requests proxy to port 3000.
+- `npm run check`: type-check client, server, shared code, and test scripts.
+- `npm test`: run Vitest unit tests, puzzle smoke tests, and multiplayer smoke tests.
+- `npm run build`: compile the server and build the frontend.
+- `npm start`: build, then serve the production app from the Node server.
 
----
+Multiplayer smoke tests start their own server on port 3112 and exercise the
+five-second countdown. Puzzle smoke tests check generated solutions, uniqueness,
+region connectivity, and layout variety.
 
-### Mobile-friendly UI pass (PR #1 – `codex/make-ui-mobile-friendly`)
+## Behavior to Preserve
 
-**Goal**: Make the game playable on mobile screens without pinch-zoom or layout overflow.
+- Keep the board usable on mobile without pinch-zoom or horizontal overflow.
+- Keep puzzle and multiplayer controls in the hamburger-triggered options dialog.
+- Keep the multiplayer battle strip as the persistent race progress/status surface;
+  do not reintroduce a standalone status card above the board.
+- Lock editing during loading, waiting, countdown, and finished multiplayer states.
+  Overlay visibility is separate from editing: the winner's success state currently
+  hides the overlay while keeping the board locked.
+- Show the room code prominently on the locked overlay when it is visible, and
+  inline in the battle-strip header only during an active race.
+- Close the options dialog after successfully hosting or joining a race.
+- Keep the five-second countdown for initial races and rematches.
+- Let the host start a fresh puzzle in the same room after a race finishes.
+  Preserve the room code, notify guests, and use `puzzleRevision` to resync clients.
+- Clear room-code displays and multiplayer state when leaving or closing a room.
+- Preserve keyboard input, touch interactions, and LAN discovery behavior.
 
-Changes:
-- Added `viewport` meta tag and `touch-action: manipulation` on interactive elements to prevent double-tap zoom.
-- Constrained `--board-max-width` with `min(94vw, 56dvh)` on small screens so the board always fits the viewport.
-- Reduced padding, gap, and font sizes under a `max-width: 860px` media query.
-- Prevented unintended zoom on board cell taps by scoping `touchstart` zoom prevention to the board element only.
+## Change Guidelines
 
----
+- Keep changes focused and follow the existing TypeScript and React conventions.
+- Reuse shared types and validation logic instead of duplicating rules between
+  client and server. Keep shared modules usable in both environments.
+- Preserve API routes and SSE event contracts unless a change explicitly requires
+  coordinated client/server updates.
+- Keep existing CSS classes and responsive behavior when changing components.
+- Add regression coverage alongside existing unit or smoke tests for changed behavior.
+- Run `npm run check` and relevant tests for code changes; use `npm run build` to
+  validate build or deployment changes.
+- Keep this guide current when architecture, commands, or core behavior changes.
+  Use Git history for historical change logs rather than expanding this file.
 
-### Controls moved to modal menu (commit `406a95d`)
+## Deployment and Operational Notes
 
-**Goal**: Free up vertical space on mobile by removing the always-visible puzzle controls header.
+- The Node server serves both `/api` and the built frontend in `dist/client`.
+  Compiled server output starts at `dist/server/server/server.js`.
+- `PORT` sets the HTTP port (default 3000).
+- `CLOUD_MODE=true` disables LAN discovery; Render sets this automatically.
+- `LAN_DISCOVERY_ENABLED=false` also disables discovery, and `DISCOVERY_PORT`
+  overrides its UDP port (default 32145).
+- Rooms live only in server memory and are lost on restart. Do not assume durable
+  sessions or support for multiple independent server instances.
+- Render currently builds during deployment and again through `npm start`.
+  Account for both commands when changing the deployment flow.
 
-Changes:
-- Moved "New puzzle", "Reset", multiplayer controls, and room code display into a `<dialog>` options modal triggered by a hamburger button (`☰`).
-- The board panel is now the primary visible element; controls are accessed on demand.
-- Added a `board-room-code` card directly on the board panel so the active room code remains visible without opening the modal.
-- Added `battle-strip` progress meters (you vs. opponent fill percentage) always visible below the controls.
+## Known UX Limitations
 
----
-
-### Locked board overlay + room code size reduction (current session)
-
-**Goal**: Further compress the vertical layout by removing the standalone locked-state message card and instead overlaying the message on the board itself.
-
-Changes:
-
-#### `public/index.html`
-- Wrapped `#board` in a new `.board-wrapper` div.
-- Added `#board-locked-overlay` (with `#board-locked-overlay-title`) as an absolutely-positioned sibling inside `.board-wrapper`. This overlay is shown only when the board is in a `locked` tone state (loading, waiting, countdown, finished).
-
-#### `public/app.js`
-- Added DOM references for `#board-locked-overlay` and `#board-locked-overlay-title`.
-- Updated `updateBoardPresentation()`: when `tone === 'locked'`, hide the `#board-message` card (`hidden = true`) and show the overlay with the title text. For all other tones (info, warning, success), the board-message card is shown normally and the overlay is hidden.
-
-#### `public/style.css`
-- Added `.board-wrapper` — a `position: relative` grid container sized to `--board-max-width`, wrapping the board.
-- Added `.board-locked-overlay` — absolutely positioned overlay (inset 0) with a semi-transparent frosted background (`rgba(238,242,246,0.82)` + `backdrop-filter: blur(2px)`), centered text, `z-index: 2`.
-- Added `.board-locked-overlay-title` — styled to match the locked tone title color and a compact font size.
-- Reduced `.board-room-code-value` font size:
-  - Desktop: `clamp(1.75rem, 5vw, 2.7rem)` → `clamp(1.4rem, 4vw, 2.1rem)`
-  - Mobile: `clamp(1.3rem, 6.8vw, 1.8rem)` → `clamp(1.1rem, 5.5vw, 1.5rem)`
-
----
-
-### Room code merged into overlay + battle strip (current session)
-
-**Goal**: Eliminate the standalone room-code card. Surface the code on the locked-board overlay in big lettering while the board is locked, and inline in the battle-strip header (small font) once the race is active. Also fix a bug where the "Host room code" UI would not reset when the host closed the race.
-
-Changes:
-
-#### `public/index.html`
-- Removed the `<section id="board-room-code">` card entirely.
-- Extended `#board-locked-overlay` with a new `#board-locked-overlay-room-code` block containing `#board-locked-overlay-label` (e.g. "Host room code") and `#board-locked-overlay-code` (the big value). The locked title now sits beneath the code.
-- Wrapped `#battle-title` in a new `.battle-title-group` flex row and added `<span id="battle-room-code">` (hidden by default) next to it.
-
-#### `public/style.css`
-- Removed all `.board-room-code*` rules (desktop + mobile media query).
-- Updated `.board-locked-overlay` to use `place-content: center; justify-items: center; gap: 0.6rem;` so the room-code block and title stack neatly.
-- Added `.board-locked-overlay-label` (small uppercase tracked text, using `--room-code-title`) and `.board-locked-overlay-code` (big tracked numerals matching the old `.board-room-code-value` size: `clamp(1.6rem, 6vmin, 2.6rem)` desktop / `clamp(1.3rem, 8vw, 2rem)` mobile).
-- Added `.battle-title-group` (flex, baseline-aligned, wrap) and `.battle-room-code` (small 0.78rem uppercase tracked, with a `·` separator via `::before`).
-
-#### `public/app.js`
-- Dropped DOM refs for the removed `boardRoomCode*` elements.
-- Added refs for `#board-locked-overlay-room-code`, `#board-locked-overlay-label`, `#board-locked-overlay-code`, and `#battle-room-code`.
-- Added a `resetRoomCodeDisplays()` helper that clears both the overlay code block and the inline battle-strip code.
-- Simplified `updateMatchStatus()` to delegate room-code UI to the other updaters and to call `resetRoomCodeDisplays()` in the no-match branch.
-- Extended `updateBoardPresentation()` to populate the overlay room code (with `data-role="host"|"guest"`) whenever the board is locked AND a match session exists.
-- Extended `updateBattleStrip()` to show the inline code only when `matchSession.match.status === 'active'` (to avoid duplicating the overlay's big code during locked phases), and to clear it in the no-match branch.
-- Patched `resetToSoloMode()` to call `resetRoomCodeDisplays()` + `updateBattleStrip()` immediately after nulling `matchSession`, fixing the bug where the Host room code persisted on screen after "Close race".
-
----
-
-### Standalone board message removed (current session)
-
-**Goal**: Eliminate the remaining text-only status card above the board and rely on the locked-board overlay plus the battle strip instead.
-
-Changes:
-
-#### `public/index.html`
-- Removed the standalone `#board-message` element from the board panel entirely.
-
-#### `public/app.js`
-- Dropped DOM refs for `#board-message`, `#board-message-title`, and `#board-message-detail`.
-- Simplified `updateBoardPresentation()` so it only manages the locked board styling, overlay title, and overlay room-code content.
-- Kept `getBoardMessage()` as the source of locked overlay titles, but non-locked board states no longer render a separate message card.
-
-#### `public/style.css`
-- Removed all `.board-message*` rules and the corresponding mobile overrides.
-- Removed the now-unused non-locked `--board-message-*` theme tokens and old room-code card color tokens from `:root`.
-- Left the battle strip styles intact as the persistent multiplayer status surface.
-
----
-
-### Persistent room rematch + menu overlap fix (current session)
-
-**Goal**: Let the host start another multiplayer game in the same room after a race finishes, instead of forcing the room to end. Also stop the hamburger menu button from overlapping the board area.
-
-Changes:
-
-#### `public/index.html`
-- Added a new hidden-by-default `#next-race` button to the multiplayer session controls in the options modal.
-
-#### `public/app.js`
-- Added a DOM ref and click handler for `#next-race`.
-- Changed multiplayer controls so any active match session keeps solo/host/join controls locked; finished matches are no longer treated as disposable from the client.
-- Added `startNextRace()` for the host, calling a new `/api/matches/:id/rematch` endpoint.
-- Extended match event handling with `handleMatchReset()` and updated `handleMatchState()` to accept an optional puzzle payload.
-- Added puzzle-revision-aware client syncing so reconnecting clients can detect a rematch and load the fresh puzzle when the room state changes.
-- Updated finished-state modal copy so hosts are prompted to start the next race or close the room, while guests are told to wait for the host.
-
-#### `server.js`
-- Added `puzzleRevision` to match state.
-- Added `assignPuzzleToMatch()` and `resetMatchForRematch()` helpers to generate and install a fresh puzzle while keeping the same room alive.
-- Added a host-only `POST /api/matches/:roomCode/rematch` endpoint.
-- Reused `startCountdown()` for both join and rematch flows.
-- Updated the initial SSE `match_state` event to include the current puzzle so reconnecting clients can resync after a rematch.
-- Broadcasts `match_reset` with the new puzzle + updated match state whenever the host starts the next race.
-
-#### `public/style.css`
-- Increased `.board-panel` top padding on desktop and mobile so the absolutely positioned hamburger menu no longer covers the battle strip, board, or locked overlay text.
-
----
-
-### Modal auto-close + 5s countdown + split host/join rows (current session)
-
-**Goal**: Make it faster to get back to the board after starting or joining a race, lengthen the pre-race countdown, and separate the host/join controls into clearer rows in the modal.
-
-Changes:
-
-#### `public/app.js`
-- Added `closeOptionsModal()`.
-- Updated `hostRace()` to close the options modal after a successful room creation.
-- Updated `joinRaceByCode()` to close the options modal after a successful join.
-
-#### `server.js`
-- Increased `MATCH_START_DELAY_MS` from `3000` to `5000`, affecting both initial joins and rematches.
-
-#### `public/style.css`
-- Changed `.multiplayer-controls` to a vertical layout so `Host race` sits on its own row.
-- Made the direct host button full-width within that stacked layout.
-- Left `.join-controls` as the separate row beneath it, with the input and join button remaining grouped together.
-
----
-
-## Current State
-
-- The board panel is compact on mobile: hamburger menu → options modal for controls, always-visible battle strip.
-- Locked states (loading, waiting for opponent, countdown, game over) overlay the board directly. When a match session is active, the overlay also surfaces the room code prominently (big lettering) above the locked title.
-- Once the race is active (board unlocked), the room code is shown inline next to the "Head-to-head race" title in the battle-strip header, in small tracked font.
-- When a multiplayer race finishes, the host can start the next race in the same room with a fresh puzzle and the same room code; connected guests are carried into the new countdown automatically.
-- Closing a hosted race or leaving as a guest immediately clears both room-code surfaces; the modal returns to "Solo mode".
-- Successfully hosting or joining a race automatically closes the modal so the player lands back on the board immediately.
-- Multiplayer countdowns now last 5 seconds before the board unlocks.
-- There is no standalone text-status box above the board anymore; locked messaging lives on the board overlay, and multiplayer progress/status lives in the battle strip.
-
----
-
-## Known Considerations / Potential Next Steps
-
-- The overlay currently shows only the locked `title` text (plus room code). The former `detail` text is no longer surfaced in the board area.
-- When the local player wins a race (`tone === 'success'`), the overlay is hidden and the inline code is also hidden (since `status === 'finished'`). The race code is still visible in the options modal. If surfacing it inline post-victory is desired, extend the `showInlineRoomCode` check in `updateBattleStrip()`.
-- The room rematch flow currently relies on the host to start the next race; guests do not explicitly confirm rematches.
-- Consider animating the overlay fade-in/out to match the existing `160ms ease` transition style used elsewhere.
-- The battle strip is always visible during a multiplayer match; consider hiding it during countdown/waiting when there is no meaningful progress to display.
+- The locked overlay shows the status title, not the derived detail text.
+- After a win, the room code remains available in the options dialog but is hidden
+  on both the overlay and the battle-strip header.
+- Only the host initiates rematches; guests do not explicitly confirm them.
