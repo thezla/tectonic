@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
+import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import type { BoardValues, MatchEvent, MatchState, MatchStatus, Puzzle } from '../src/shared/api.js';
+import type { BoardValues, MatchEvent, MatchState, MatchStatus, PlayerRole, Puzzle } from '../src/shared/api.js';
 import { getAllowedValues, validateBoard } from '../src/shared/validate.js';
 
 const port = 3112;
@@ -128,7 +130,7 @@ async function readNextSseEvent(readerState: ReaderState): Promise<SseReadResult
   }
 }
 
-async function waitForFinishedMatchEvent(readerState: ReaderState, winnerPlayerId: string): Promise<ReaderState> {
+async function waitForFinishedMatchEvent(readerState: ReaderState, winnerRole: PlayerRole): Promise<ReaderState> {
   let nextReaderState = readerState;
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -137,7 +139,7 @@ async function waitForFinishedMatchEvent(readerState: ReaderState, winnerPlayerI
     if (
       event.payload.type === 'match_state' &&
       event.payload.match.status === 'finished' &&
-      event.payload.match.winnerPlayerId === winnerPlayerId
+      event.payload.match.winnerRole === winnerRole
     ) {
       return nextReaderState;
     }
@@ -211,6 +213,17 @@ function solvePuzzle(puzzle: Puzzle): BoardValues {
 
 try {
   await waitForServer();
+
+  for (const path of ['//%', '//[']) {
+    const statusCode = await new Promise<number | undefined>((resolve, reject) => {
+      http.get({ hostname: 'localhost', port, path }, (response) => {
+        response.resume();
+        response.on('end', () => resolve(response.statusCode));
+      }).on('error', reject);
+    });
+    assert.equal(statusCode, 400, `Malformed URL ${path} must not crash the server.`);
+  }
+  assert.equal((await fetch(`http://localhost:${port}/api/discovery/matches`)).status, 200);
 
   const host = await postJson<{ matchId: string; playerId: string; puzzle: Puzzle }>('/api/matches', {});
   const givenCount = host.puzzle.givens.filter((value) => value !== null).length;
@@ -303,16 +316,43 @@ try {
   }
 
   const solvedValues = solvePuzzle(host.puzzle);
-  const finish = await postJson<{ match: { winnerPlayerId: string | null; status: MatchStatus } }>(`/api/matches/${host.matchId}/finish`, {
+  for (const values of [solvedValues.slice(0, -1), [...solvedValues, 999], [null, ...solvedValues.slice(1)]]) {
+    const response = await fetch(`http://localhost:${port}/api/matches/${host.matchId}/finish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId: host.playerId, values }),
+    });
+    await response.text();
+    assert.equal(response.status, 400, 'Invalid finishes must be rejected.');
+  }
+  const activeState = await reportAndCheckProgress(guest.playerId, guestFilledCount);
+  assert.equal(activeState.status, 'active');
+  assert.equal(activeState.winnerRole, null);
+
+  const finish = await postJson<{ match: MatchState }>(`/api/matches/${host.matchId}/finish`, {
     playerId: host.playerId,
     values: solvedValues,
   });
 
-  if (finish.match.winnerPlayerId !== host.playerId || finish.match.status !== 'finished') {
+  if (finish.match.winnerRole !== 'host' || finish.match.status !== 'finished') {
     throw new Error('Host finish did not end the match correctly.');
   }
 
-  readerState = await waitForFinishedMatchEvent(readerState, host.playerId);
+  assert.equal('winnerPlayerId' in finish.match, false);
+  assert.equal(JSON.stringify(finish).includes(host.playerId), false);
+  assert.equal(JSON.stringify(finish).includes(guest.playerId), false);
+
+  readerState = await waitForFinishedMatchEvent(readerState, 'host');
+
+  for (const action of ['close', 'rematch']) {
+    const response = await fetch(`http://localhost:${port}/api/matches/${host.matchId}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId: finish.match.winnerRole }),
+    });
+    await response.text();
+    assert.equal(response.status, 403, `The public winner role must not authorize ${action}.`);
+  }
 
   const finishedProgress = await postJson<{ match: MatchState }>(`/api/matches/${host.matchId}/progress`, {
     playerId: host.playerId,
@@ -321,7 +361,7 @@ try {
 
   if (
     finishedProgress.match.status !== 'finished' ||
-    finishedProgress.match.winnerPlayerId !== host.playerId ||
+    finishedProgress.match.winnerRole !== 'host' ||
     finishedProgress.match.players[0].filledCount !== boardSize
   ) {
     throw new Error('Inactive progress changed finished match state.');
@@ -331,12 +371,12 @@ try {
   readerState.reader.releaseLock();
   eventController.abort();
 
-  const lateFinish = await postJson<{ match: { winnerPlayerId: string | null } }>(`/api/matches/${host.matchId}/finish`, {
+  const lateFinish = await postJson<{ match: MatchState }>(`/api/matches/${host.matchId}/finish`, {
     playerId: guest.playerId,
     values: solvedValues,
   });
 
-  if (lateFinish.match.winnerPlayerId !== host.playerId) {
+  if (lateFinish.match.winnerRole !== 'host') {
     throw new Error('Late finish changed the winner.');
   }
 

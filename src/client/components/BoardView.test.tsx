@@ -15,7 +15,7 @@ const session: MatchSession = {
     roomCode: 'ABCD',
     puzzleRevision: 1,
     status: 'waiting',
-    winnerPlayerId: null,
+    winnerRole: null,
     startsAt: null,
     players: [],
   },

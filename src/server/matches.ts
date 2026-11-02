@@ -21,7 +21,7 @@ export type MatchRecord = {
   givenCount: number;
   puzzleRevision: number;
   status: MatchState['status'];
-  winnerPlayerId: string | null;
+  winnerRole: PlayerRole | null;
   startsAt: number | null;
   startTimer: NodeJS.Timeout | null;
   subscribers: Set<ServerResponse>;
@@ -50,7 +50,7 @@ export function buildMatchState(match: MatchRecord): MatchState {
     roomCode: match.id,
     puzzleRevision: match.puzzleRevision,
     status: match.status,
-    winnerPlayerId: match.winnerPlayerId,
+    winnerRole: match.winnerRole,
     startsAt: match.startsAt,
     players: (['host', 'guest'] as const).map((role) => {
       const player = match.players[role];
@@ -75,7 +75,7 @@ export function createMatch(): { match: MatchRecord; playerId: string } {
     givenCount: 0,
     puzzleRevision: 0,
     status: 'waiting',
-    winnerPlayerId: null,
+    winnerRole: null,
     startsAt: null,
     startTimer: null,
     subscribers: new Set<ServerResponse>(),
@@ -124,7 +124,7 @@ export function resetHostToWaiting(match: MatchRecord): void {
   clearStartTimer(match);
   match.players.guest = null;
   match.status = 'waiting';
-  match.winnerPlayerId = null;
+  match.winnerRole = null;
   match.startsAt = null;
 
   if (match.players.host) {
@@ -135,7 +135,7 @@ export function resetHostToWaiting(match: MatchRecord): void {
 export function resetMatchForRematch(match: MatchRecord): void {
   const { puzzle, solution } = createPuzzleWithSolution();
   assignPuzzleToMatch(match, puzzle, solution);
-  match.winnerPlayerId = null;
+  match.winnerRole = null;
 
   if (match.players.guest) {
     startCountdown(match);
@@ -218,13 +218,18 @@ export function broadcastEvent(match: MatchRecord, payload: unknown): void {
   }
 }
 
-export function finishMatch(match: MatchRecord, player: PlayerRecord, values: unknown[]): void {
-  player.filledCount = values.filter((value) => value !== null).length;
+export function finishMatch(match: MatchRecord, player: PlayerRecord, values: unknown[]): boolean {
+  if (values.length !== match.solution.length || match.solution.some((value, index) => values[index] !== value)) {
+    return false;
+  }
+
+  player.filledCount = match.solution.length;
   clearStartTimer(match);
   match.status = 'finished';
-  match.winnerPlayerId = player.id;
+  match.winnerRole = player.role;
   match.startsAt = null;
   broadcastMatchState(match);
+  return true;
 }
 
 export function getJoinableMatches(): MatchRecord[] {
@@ -259,7 +264,7 @@ function assignPuzzleToMatch(match: MatchRecord, puzzle: Puzzle, solution: numbe
 function startCountdown(match: MatchRecord): void {
   clearStartTimer(match);
   match.status = 'countdown';
-  match.winnerPlayerId = null;
+  match.winnerRole = null;
   match.startsAt = Date.now() + MATCH_START_DELAY_MS;
   match.startTimer = setTimeout(() => {
     if (!matches.has(match.id) || match.status !== 'countdown') {

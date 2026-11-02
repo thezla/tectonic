@@ -69,7 +69,7 @@ function getBattleDeltaText(matchSession: MatchSession, opponentJoined: boolean,
   }
 
   if (matchSession.match.status === 'finished') {
-    return matchSession.match.winnerPlayerId === matchSession.playerId ? 'Victory' : 'Defeat';
+    return matchSession.match.winnerRole === matchSession.role ? 'Victory' : 'Defeat';
   }
 
   if (!opponentJoined) {

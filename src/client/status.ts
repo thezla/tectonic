@@ -56,7 +56,7 @@ export function getBoardMessage(
   }
 
   if (matchSession?.match.status === 'finished') {
-    const playerWon = matchSession.match.winnerPlayerId === matchSession.playerId;
+    const playerWon = matchSession.match.winnerRole === matchSession.role;
 
     return {
       tone: playerWon ? 'success' : 'locked',
@@ -116,12 +116,12 @@ export function getMatchStatus(matchSession: MatchSession | null, lanDiscoveryEn
 
   if (matchSession.match.status === 'finished') {
     if (matchSession.role === 'host') {
-      return matchSession.match.winnerPlayerId === matchSession.playerId
+      return matchSession.match.winnerRole === matchSession.role
         ? 'You won the race. Start the next race when ready or close the room.'
         : 'You lost the race. Start the next race when ready or close the room.';
     }
 
-    return matchSession.match.winnerPlayerId === matchSession.playerId
+    return matchSession.match.winnerRole === matchSession.role
       ? 'You won the race. Waiting for the host to start the next race or close the room.'
       : 'You lost the race. Waiting for the host to start the next race or close the room.';
   }

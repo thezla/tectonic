@@ -69,6 +69,8 @@ region connectivity, and layout variety.
   client and server. Keep shared modules usable in both environments.
 - Preserve API routes and SSE event contracts unless a change explicitly requires
   coordinated client/server updates.
+- Match state exposes `winnerRole`, never a player's credential. Finish attempts
+  must exactly match the server's stored solution, including board length.
 - Keep existing CSS classes and responsive behavior when changing components.
 - The Soft Terrain visual design uses charcoal/lavender surfaces, mint accents,
   and six tinted region colors from the approved dark mockup, alongside
