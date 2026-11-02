@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BoardValues, MatchSession, Puzzle, ValidationResult } from '../shared/api.js';
-import { getBoardStatus, getEditableBoardState, getMatchStatus } from './status.js';
+import { getBoardMessage, getBoardStatus, getEditableBoardState, getMatchStatus } from './status.js';
 
 const puzzle: Puzzle = {
   width: 2,
@@ -26,7 +26,7 @@ function createMatchSession(status: MatchSession['match']['status'], role: Match
       roomCode: 'ABCD',
       puzzleRevision: 1,
       status,
-      winnerPlayerId: null,
+      winnerRole: null,
       startsAt: status === 'countdown' ? Date.now() + 5000 : null,
       players: [
         { role: 'host', joined: true, connected: true, filledCount: 2 },
@@ -49,6 +49,20 @@ describe('status helpers', () => {
   it('keeps no-match copy aligned with LAN discovery availability', () => {
     expect(getMatchStatus(null, true)).toContain('local network');
     expect(getMatchStatus(null, false)).toContain('room code');
+  });
+
+  it.each(['host', 'guest'] as const)('shows %s victory and defeat using only the public winner role', (role) => {
+    const session = createMatchSession('finished', role);
+    session.match.winnerRole = role;
+
+    expect(getMatchStatus(session, false)).toContain('You won the race.');
+    expect(getBoardMessage(puzzle, values, clearResult, false, session, '').tone).toBe('success');
+    expect(getEditableBoardState(false, session)).toBe(false);
+
+    session.match.winnerRole = role === 'host' ? 'guest' : 'host';
+
+    expect(getMatchStatus(session, false)).toContain('You lost the race.');
+    expect(getBoardMessage(puzzle, values, clearResult, false, session, '').tone).toBe('locked');
   });
 
   it('reports conflicted active race boards as non-scoring progress', () => {

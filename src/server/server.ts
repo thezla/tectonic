@@ -1,9 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
 
-import type { BoardValues } from '../shared/api.js';
 import { createPuzzle } from '../shared/puzzle.js';
-import { validateBoard } from '../shared/validate.js';
 import { createDiscoveryService } from './discovery.js';
 import { readJsonBody, sendJson, sendText, serveStaticFile } from './http.js';
 import {
@@ -38,7 +36,15 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
-  const requestUrl = new URL(request.url, 'http://localhost');
+  let requestUrl: URL;
+
+  try {
+    requestUrl = new URL(request.url, 'http://localhost');
+  } catch {
+    sendText(response, 400, 'Invalid URL');
+    return;
+  }
+
   const matchRoute = getMatchRoute(requestUrl.pathname);
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/puzzle') {
@@ -213,15 +219,11 @@ async function handleMatchRoute(
         return true;
       }
 
-      const values = body.values as BoardValues;
-      const result = validateBoard(match.puzzle, values);
-
-      if (!result.solved) {
+      if (!finishMatch(match, player, body.values)) {
         sendText(response, 400, 'Board is not solved');
         return true;
       }
 
-      finishMatch(match, player, values);
       sendJson(response, 200, { match: buildMatchState(match) });
       return true;
     }

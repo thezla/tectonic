@@ -38,7 +38,7 @@ export type MatchState = {
   roomCode: string;
   puzzleRevision: number;
   status: MatchStatus;
-  winnerPlayerId: string | null;
+  winnerRole: PlayerRole | null;
   startsAt: number | null;
   players: MatchPlayerState[];
 };

@@ -13,7 +13,7 @@ const matchSession: MatchSession = {
     roomCode: 'ABCD',
     puzzleRevision: 1,
     status: 'active',
-    winnerPlayerId: null,
+    winnerRole: null,
     startsAt: null,
     players: [{ role: 'guest', joined: true, connected: true, filledCount: 2 }],
   },
@@ -42,6 +42,13 @@ describe('animated race progress', () => {
     expect(markup).toContain('>ABCD</span>');
     expect(markup).toContain('style="width:25%"');
     expect(markup).toContain('style="width:50%"');
+  });
+
+  it.each(['host', 'guest'] as const)('shows the %s result without comparing player credentials', (winnerRole) => {
+    const session: MatchSession = { ...matchSession, match: { ...matchSession.match, status: 'finished', winnerRole } };
+    const markup = renderToStaticMarkup(<BattleStrip {...props} matchSession={session} />);
+
+    expect(markup).toContain(winnerRole === session.role ? '>Victory</span>' : '>Defeat</span>');
   });
 
   it.each(['waiting', 'countdown', 'finished'] as const)('does not reveal the inline room code during %s', (status) => {
